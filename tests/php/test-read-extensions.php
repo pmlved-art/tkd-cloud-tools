@@ -23,13 +23,13 @@ class SyntheticDatabase {
     }
 }
 $wpdb=new SyntheticDatabase();
-foreach(array('id'=>'bigint(20) unsigned','sku'=>'varchar(128)','name'=>'varchar(255)','unit'=>'varchar(32)','on_hand'=>'decimal(12,3)','reserved'=>'decimal(12,3)','incoming'=>'decimal(12,3)','active'=>'tinyint(1)','updated_at'=>'datetime','cost_price_uah'=>'decimal(12,2)') as $name=>$type) $wpdb->columns[]=array('Field'=>$name,'Type'=>$type,'Default'=>'NEVER_RETURN_DEFAULT');
+foreach(array('id'=>'bigint(20) unsigned','sku'=>'varchar(128)','name'=>'varchar(255)','unit'=>'varchar(32)','on_hand'=>'decimal(12,3)','reserved'=>'decimal(12,3)','reserved_supply'=>'decimal(12,3)','incoming'=>'decimal(12,3)','active'=>'tinyint(1)','updated_at'=>'datetime','cost_price_uah'=>'decimal(12,2)') as $name=>$type) $wpdb->columns[]=array('Field'=>$name,'Type'=>$type,'Default'=>'NEVER_RETURN_DEFAULT');
 $post->post_modified_gmt='2026-11-17 10:00:00'; $post->post_type='tkd_order'; $post->post_status='publish'; $numbers=array('TKD-100'); $statuses=array('new'); $ids=array(12);
 $r->number='TKD-100'; $r->query_params=array();
-$extra_meta=array('_tkd_client_total'=>array('0.00'),'_tkd_fo_order_items'=>array(array(array('sku'=>'SYNTHETIC','name'=>'Synthetic','unit'=>'pcs','quantity'=>1.125,'unit_price'=>100.25,'secret'=>'HIDDEN','opaque'=>array('token'=>'HIDDEN')))), '_tkd_fo_payments'=>array(array(array('id'=>'synthetic-payment','amount'=>'0.00','status'=>'void','payer_name'=>'HIDDEN','reference'=>'HIDDEN','bank_transaction_id'=>'HIDDEN','opaque'=>array('secret'=>'HIDDEN')))));
+$extra_meta=array('_tkd_client_total'=>array('0.00'),'_tkd_fo_order_items'=>array(array(array('sku'=>'SYNTHETIC','name'=>'Synthetic','unit'=>'pcs','quantity'=>1.125,'unit_price'=>100.25,'secret'=>'HIDDEN','opaque'=>array('token'=>'HIDDEN')))), '_tkd_fo_payments'=>array(array(array('id'=>'synthetic-payment','amount'=>'0.00','status'=>'void','payer_name'=>'SYNTHETIC_PERSON','reference'=>'SYNTHETIC_REFERENCE','bank_transaction_id'=>'SYNTHETIC_BANK_ID','opaque'=>array('secret'=>'HIDDEN')))));
 $d=TKD_Cloud_Read_Extensions::details($r);
 check($d instanceof WP_REST_Response,'details succeeds');
-check(strpos(json_encode($d->data),'HIDDEN')===false,'unknown nested/payment private fields filtered');
+check(strpos(json_encode($d->data),'HIDDEN')===false,'unknown nested fields filtered; payment projection explicit');
 check($d->data['metadata']['_tkd_client_total']===array('present'=>true,'value'=>'0.00') && $d->data['metadata']['_tkd_paid_at']===array('present'=>false,'value'=>null),'missing and zero distinct');
 check($d->data['metadata']['_tkd_fo_order_items']['value'][0]['quantity']==='1.125' && $d->data['metadata']['_tkd_fo_order_items']['value'][0]['unit_price']==='100.25','item quantity and unit_price number conversion');
 check($d->data['metadata']['_tkd_fo_payments']['value'][0]['status']==='void' && !isset($d->data['payment_total']),'stored void rows not counted as received');
@@ -60,10 +60,11 @@ $ref=new ReflectionMethod('TKD_FO_Orders','get_order_items');$lines=file($ref->g
 check($mc['file_sha256']===hash_file('sha256',$ref->getFileName()) && $mc['methods'][0]['source_sha256']===hash('sha256',$slice),'file and exact method-line hashes');
 check(strpos(json_encode($m->data),__DIR__)===false && strpos(json_encode($m->data),'MUTATING')===false && strpos(json_encode($m->data),'NEVER_RETURN_DEFAULT')===false,'no source/path/default value leaks');
 check($m->data['stock_schema']['state']==='read-compatible','manifest stock guard');
-$row=array('id'=>'1','sku'=>'SKU-SYNTHETIC','name'=>'Synthetic','unit'=>'pcs','on_hand'=>'10.125','reserved'=>'3.001','incoming'=>'99.000','active'=>'1','updated_at'=>'2026-11-17 10:00:00','cost_price_uah'=>'HIDDEN');
+$row=array('id'=>'1','sku'=>'SKU-SYNTHETIC','name'=>'Synthetic','unit'=>'pcs','on_hand'=>'10.125','reserved'=>'3.001','reserved_supply'=>'1.000','incoming'=>'99.000','active'=>'1','updated_at'=>'2026-11-17 10:00:00','cost_price_uah'=>'HIDDEN');
 $wpdb->rows=array($row);$wpdb->sql=array();$r->query_params=array('limit'=>'1');
 $s=TKD_Cloud_Read_Extensions::stock($r);
 check($s instanceof WP_REST_Response && $s->data['rows'][0]['available_on_hand_minus_reserved']==='7.124000','stock exact decimal subtraction excludes incoming');
+check($s->data['rows'][0]['physical_reserved']==='2.001000' && $s->data['rows'][0]['free_physical']==='8.124000' && $s->data['rows'][0]['free_after_supply']==='106.124000','supply-aware exact stock formulas');
 check(!isset($s->data['rows'][0]['cost_price_uah']) && strpos($wpdb->sql[1],'cost_price')===false && strpos($wpdb->sql[0],'SHOW COLUMNS')===0,'schema precedes projected SELECT no cost');
 $wpdb->rows=array($row,array_merge($row,array('id'=>'2')));$s=TKD_Cloud_Read_Extensions::stock($r);check(count($s->data['rows'])===1 && $s->data['next_cursor']==='1','stock cursor limit plus lookahead');
 $r->query_params=array('sku'=>'SKU-SYNTHETIC');check(error_status(TKD_Cloud_Read_Extensions::stock($r),409),'duplicate exact SKU refused');
@@ -75,7 +76,12 @@ $r->query_params=array();$backup=$wpdb->columns;$wpdb->columns=array();$wpdb->sq
 check(error_status(TKD_Cloud_Read_Extensions::stock($r),503) && count($wpdb->sql)===1,'missing schema blocks SELECT');
 $wpdb->columns=$backup;$wpdb->columns[4]['Type']='float';check(error_status(TKD_Cloud_Read_Extensions::stock($r),503),'floating stock column type rejected');$wpdb->columns=$backup;
 $wpdb->fail=true;check(error_status(TKD_Cloud_Read_Extensions::stock($r),503) && $wpdb->suppressed===false,'DB error sanitized and suppression restored');$wpdb->fail=false;
-$wpdb->rows=array(array_merge($row,array('on_hand'=>'0.1','reserved'=>'0.3','incoming'=>'1')));$s=TKD_Cloud_Read_Extensions::stock($r);check($s->data['rows'][0]['available_on_hand_minus_reserved']==='-0.200000','negative exact availability');
+$wpdb->rows=array(array_merge($row,array('on_hand'=>'0.1','reserved'=>'0.3','reserved_supply'=>'0','incoming'=>'1')));$s=TKD_Cloud_Read_Extensions::stock($r);check($s->data['rows'][0]['available_on_hand_minus_reserved']==='-0.200000','negative exact availability');
+foreach(array(
+ array('on_hand'=>'1.125','reserved'=>'2.500','reserved_supply'=>'-1.000','incoming'=>'0.500','expected'=>array('2.500000','-1.375000','0.000000')),
+ array('on_hand'=>'1.125','reserved'=>'-2.500','reserved_supply'=>'4.000','incoming'=>'5.000','expected'=>array('0.000000','1.125000','2.125000')),
+ array('on_hand'=>'999999999999.999999','reserved'=>'0','reserved_supply'=>'0','incoming'=>'999999999999.999999','expected'=>array('0.000000','999999999999.999999','1999999999999.999998'))
+)as $case){$expected=$case['expected'];unset($case['expected']);$wpdb->rows=array(array_merge($row,$case));$r->query_params=array();$out=TKD_Cloud_Read_Extensions::stock($r);check(array($out->data['rows'][0]['physical_reserved'],$out->data['rows'][0]['free_physical'],$out->data['rows'][0]['free_after_supply'])===$expected,'stock clamp/negative/large precision formula');}
 foreach(array('/tkd-cloud/v1/integration-manifest','/tkd-cloud/v1/orders','/tkd-cloud/v1/orders/TKD-100/details','/tkd-cloud/v1/stock') as $route) {
  $r->route=$route;$uid=8;check(error_status(TKD_Cloud_Reader::permission($r),401),'new route rejects cookie/mismatched native user');$uid=7;
  $explicit_cap=false;check(error_status(TKD_Cloud_Reader::permission($r),403),'new route requires same explicit cap');$explicit_cap=true;

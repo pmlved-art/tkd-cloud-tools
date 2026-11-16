@@ -14,8 +14,8 @@ from scripts.preflight import NoRedirect
 
 BASE = 'https://tkd-ukraine.com.ua:443/wp-json/tkd-cloud/v1/'
 SECRET = 'TKD_CLOUD_AUTHORIZATION'
-VERSION = '0.2.0'
-KNOWN_VERSIONS = ('0.1.0', '0.1.1', '0.2.0')
+VERSION = '0.3.0'
+KNOWN_VERSIONS = ('0.1.0', '0.1.1', '0.2.0', '0.3.0')
 SCHEMA = 'tkd-order-minimal-v1-candidate'
 MAX_BODY = 16384
 
@@ -69,7 +69,7 @@ def read_bridge(number=None, command=None, limit=25, cursor='0', sku=None, inclu
             if not isinstance(data, dict):
                 return {'result': 'schema_mismatch'}
             if command in SCHEMAS:
-                valid = data.get('bridge_version') == '0.2.0' and data.get('schema_version') == SCHEMAS[command]
+                valid = data.get('bridge_version') in ('0.2.0', '0.3.0') and (data.get('schema_version') == SCHEMAS[command] or command == 'stock' and data.get('schema_version') == 'tkd-stock-read-v1-candidate' and data.get('bridge_version') == '0.2.0')
                 if command == 'manifest':
                     valid = valid and validate_manifest(data)
                 elif command == 'details':

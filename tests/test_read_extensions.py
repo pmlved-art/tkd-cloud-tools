@@ -94,6 +94,14 @@ class ExtensionClientTests(unittest.TestCase):
         self.assertEqual(self.request(self.stock,'stock',sku='SYNTHETIC-SKU')['result'],'stock_verified')
         self.assertEqual(self.request(self.stock,'stock',sku='OTHER')['result'],'schema_mismatch')
 
+    def test_stock_supply_aware_projection(self):
+        d=copy.deepcopy(self.stock);d['bridge_version']='0.3.0';d['schema_version']='tkd-stock-read-v2-candidate'
+        d['rows'][0].update(reserved_supply='0.2',physical_reserved='0.100000',free_physical='0.000000',free_after_supply='89.800000')
+        self.assertEqual(self.request(d,'stock')['result'],'stock_verified')
+        for field in ('physical_reserved','free_physical','free_after_supply'):
+            bad=copy.deepcopy(d);bad['rows'][0][field]='999.000000'
+            self.assertEqual(self.request(bad,'stock')['result'],'schema_mismatch')
+
     def test_lookup_suffix_checks(self):
         d={'id':12,'number':'TKD-20261117-100','status':'new','post_modified_gmt':'2026-11-17 00:00:00','bridge_version':'0.2.0','schema_version':'tkd-order-minimal-v1-candidate'}
         self.assertEqual(self.request(d,'lookup','100')['result'],'order_schema_verified')

@@ -1,3 +1,13 @@
+# 0.3.0 pending review (not deployed, no installer ZIP)
+
+The source now includes a restricted native operations gateway and a separately
+confirmed operator-role action. See docs/operations-gateway-review.md in the
+review artifact for the authoritative 0.3.0 contract. The historical 0.2.0
+read contract below is superseded by those explicit changes (stock schema v2,
+protected payer/reference/bank_transaction_id projection, and operation routes).
+Do not package/install until independent review. Existing read-only user/key
+are not elevated automatically; the admin action works after ordinary updates.
+
 # TKD Cloud Reader 0.2.0 — read-only integration candidate
 
 Пакет для ручного review та оновлення. Не розгорнуто на production.

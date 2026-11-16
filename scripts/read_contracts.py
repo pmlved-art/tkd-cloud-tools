@@ -4,10 +4,10 @@ import re
 CLASSES = ('TKD_FO_Orders', 'TKD_FO_Payments', 'TKD_FO_DB', 'TKD_FO_Invoices', 'TKD_FO_Deliveries', 'TKD_FO_Inventory_Admin', 'TKD_FO_Mobile_Cabinet_20261011', 'TKD_FO_Order_Editor', 'TKD_FO_Customers', 'TKD_FO_Phone_Orders', 'TKD_FO_Order_Comments')
 META = ('_tkd_order_number', '_tkd_status', '_tkd_customer_name', '_tkd_customer_phone', '_tkd_customer_email', '_tkd_client_total', '_tkd_confirmed_amount', '_tkd_prepayment_received', '_tkd_paid_at', '_tkd_fo_order_items', '_tkd_fo_payments', '_tkd_fo_invoice_id', '_tkd_fo_stock_state', '_tkd_fo_reservation_stage', '_tkd_fo_reservation_until')
 ITEM = {'sku', 'name', 'quantity', 'unit_price', 'item_id', 'unit'}
-PAYMENT = {'id', 'amount', 'fee', 'net_amount', 'recipient_key', 'channel_key', 'received_at', 'source', 'status', 'created_at', 'settled_at', 'settlement_date_precision', 'settlement_date_source'}
+PAYMENT = {'payer_name', 'reference', 'bank_transaction_id', 'id', 'amount', 'fee', 'net_amount', 'recipient_key', 'channel_key', 'received_at', 'source', 'status', 'created_at', 'settled_at', 'settlement_date_precision', 'settlement_date_source'}
 STOCK = {'id', 'sku', 'name', 'unit', 'on_hand', 'reserved', 'incoming', 'active', 'updated_at'}
-STOCK_KNOWN = STOCK | {'price', 'exw_price_eur', 'cost_price_uah', 'page_id', 'created_at'}
-SCHEMAS = {'manifest': 'tkd-integration-manifest-v1-candidate', 'details': 'tkd-order-details-v1-candidate', 'stock': 'tkd-stock-read-v1-candidate'}
+STOCK_KNOWN = STOCK | {'reserved_supply'} | {'price', 'exw_price_eur', 'cost_price_uah', 'page_id', 'created_at'}
+SCHEMAS = {'manifest': 'tkd-integration-manifest-v1-candidate', 'details': 'tkd-order-details-v1-candidate', 'stock': 'tkd-stock-read-v2-candidate'}
 
 
 def text(v, bound=512):
@@ -36,7 +36,7 @@ def rows(v, payments=False):
             if k in {'quantity', 'unit_price', 'amount', 'fee', 'net_amount'}:
                 if not decimal(val, 3 if k == 'quantity' else 2):
                     return False
-            elif not text(val, 512 if k == 'name' else 64 if k in {'id', 'item_id'} else 128):
+            elif not text(val, 512 if k in {'name', 'payer_name'} else 64 if k in {'id', 'item_id'} else 128):
                 return False
         if payments and row.get('id'):
             if row['id'] in ids:
@@ -111,7 +111,7 @@ def validate_manifest(d):
     if type(d['total_methods']) is not int or d['total_methods'] != total or total > 500:
         return False
     s = d['stock_schema']
-    if not isinstance(s, dict) or set(s) != {'table_suffix', 'state', 'columns'} or s['table_suffix'] != 'tkd_fo_stock' or s['state'] not in {'unavailable', 'incompatible', 'read-compatible'} or not isinstance(s['columns'], list) or len(s['columns']) > 15:
+    if not isinstance(s, dict) or set(s) != {'table_suffix', 'state', 'columns'} or s['table_suffix'] != 'tkd_fo_stock' or s['state'] not in {'unavailable', 'incompatible', 'read-compatible'} or not isinstance(s['columns'], list) or len(s['columns']) > 16:
         return False
     names = set()
     for c in s['columns']:
@@ -124,6 +124,7 @@ def validate_manifest(d):
 
 
 def validate_stock(d, limit, sku):
+    v2 = d.get('schema_version') == 'tkd-stock-read-v2-candidate'
     if set(d) != {'bridge_version', 'schema_version', 'rows', 'next_cursor'} or not isinstance(d['rows'], list) or len(d['rows']) > (1 if sku is not None else limit):
         return False
     cursor = d['next_cursor']
@@ -132,7 +133,7 @@ def validate_stock(d, limit, sku):
     ids = set()
     from decimal import Decimal
     for row in d['rows']:
-        if not isinstance(row, dict) or set(row) != STOCK | {'available_on_hand_minus_reserved'} or not all(text(v) for v in row.values()):
+        if not isinstance(row, dict) or set(row) != STOCK | {'available_on_hand_minus_reserved'} | ({'reserved_supply', 'physical_reserved', 'free_physical', 'free_after_supply'} if v2 else set()) or not all(text(v) for v in row.values()):
             return False
         if not re.fullmatch(r'[0-9]{1,18}', row['id']) or int(row['id']) < 1 or row['id'] in ids or row['active'] not in {'0', '1'}:
             return False
@@ -143,4 +144,13 @@ def validate_stock(d, limit, sku):
             return False
         if Decimal(row['available_on_hand_minus_reserved']) != Decimal(row['on_hand']) - Decimal(row['reserved']):
             return False
+        if v2:
+            if not decimal(row['reserved_supply'], 6) or any(not re.fullmatch(r'-?[0-9]{1,13}\.[0-9]{6}', row[k]) for k in ('physical_reserved', 'free_physical', 'free_after_supply')):
+                return False
+            supply = max(Decimal(0), Decimal(row['reserved_supply']))
+            physical = max(Decimal(0), Decimal(row['reserved']) - supply)
+            free = Decimal(row['on_hand']) - physical
+            after = max(Decimal(0), free + max(Decimal(0), Decimal(row['incoming']) - supply))
+            if [Decimal(row[k]) for k in ('physical_reserved', 'free_physical', 'free_after_supply')] != [physical, free, after]:
+                return False
     return True

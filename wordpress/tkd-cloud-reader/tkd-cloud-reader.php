@@ -2,13 +2,13 @@
 /**
  * Plugin Name: TKD Cloud Reader (candidate)
  * Description: Minimal Application Password protected order reader. Server schema review required.
- * Version: 0.2.0
+ * Version: 0.3.0
  * Requires PHP: 7.4
  */
 if (!defined('ABSPATH')) { exit; }
 
 final class TKD_Cloud_Reader {
-    const VERSION = '0.2.0';
+    const VERSION = '0.3.0';
     const SCHEMA = 'tkd-order-minimal-v1-candidate';
     const CAP = 'tkd_cloud_read_orders';
     private static $application_user_id = 0;
@@ -20,6 +20,7 @@ final class TKD_Cloud_Reader {
     }
 
     public static function activate() {
+        TKD_Cloud_Operator_Role::ensure_role();
         $caps = array('read' => true, self::CAP => true);
         $role = get_role('tkd_cloud_reader');
         if ($role) {
@@ -43,6 +44,7 @@ final class TKD_Cloud_Reader {
 
     public static function routes() {
         TKD_Cloud_Read_Extensions::routes();
+        TKD_Cloud_Operations::routes();
         foreach (array('/health' => 'health', '/orders/(?P<number>[A-Za-z0-9-]{1,64})' => 'order') as $route => $callback) {
             register_rest_route('tkd-cloud/v1', $route, array(
                 'methods' => 'GET',
@@ -52,7 +54,7 @@ final class TKD_Cloud_Reader {
         }
     }
 
-    public static function permission($request) {
+    public static function application_permission($request) {
         if (!is_ssl()) {
             return new WP_Error('tkd_https_required', 'HTTPS required.', array('status' => 403));
         }
@@ -68,6 +70,12 @@ final class TKD_Cloud_Reader {
         if (empty($user->allcaps[self::CAP]) || !current_user_can(self::CAP)) {
             return new WP_Error('tkd_forbidden', 'Order read permission required.', array('status' => 403));
         }
+        return true;
+    }
+
+    public static function permission($request) {
+        $auth = self::application_permission($request);
+        if ($auth !== true) { return $auth; }
         if ($request->get_method() !== 'GET') {
             return new WP_Error('tkd_method_not_allowed', 'GET required.', array('status' => 405));
         }
@@ -166,6 +174,10 @@ final class TKD_Cloud_Reader {
     }
 }
 require_once __DIR__ . '/read-extensions.php';
+require_once __DIR__ . '/native-contracts.php';
+require_once __DIR__ . '/operations.php';
+require_once __DIR__ . '/operator-role.php';
+TKD_Cloud_Operator_Role::boot();
 TKD_Cloud_Reader::boot();
 register_activation_hook(__FILE__, array('TKD_Cloud_Reader', 'activate'));
 // Deactivation unregisters code on subsequent requests; no roles or data are deleted.

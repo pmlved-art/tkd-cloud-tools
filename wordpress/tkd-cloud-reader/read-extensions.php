@@ -9,9 +9,9 @@ final class TKD_Cloud_Read_Extensions {
     const CLASSES = array('TKD_FO_Orders', 'TKD_FO_Payments', 'TKD_FO_DB', 'TKD_FO_Invoices', 'TKD_FO_Deliveries', 'TKD_FO_Inventory_Admin', 'TKD_FO_Mobile_Cabinet_20261011', 'TKD_FO_Order_Editor', 'TKD_FO_Customers', 'TKD_FO_Phone_Orders', 'TKD_FO_Order_Comments');
     const META = array('_tkd_order_number', '_tkd_status', '_tkd_customer_name', '_tkd_customer_phone', '_tkd_customer_email', '_tkd_client_total', '_tkd_confirmed_amount', '_tkd_prepayment_received', '_tkd_paid_at', '_tkd_fo_order_items', '_tkd_fo_payments', '_tkd_fo_invoice_id', '_tkd_fo_stock_state', '_tkd_fo_reservation_stage', '_tkd_fo_reservation_until');
     const ITEM_FIELDS = array('sku', 'name', 'quantity', 'unit_price', 'item_id', 'unit');
-    const PAYMENT_FIELDS = array('id', 'amount', 'fee', 'net_amount', 'recipient_key', 'channel_key', 'received_at', 'source', 'status', 'created_at', 'settled_at', 'settlement_date_precision', 'settlement_date_source');
-    const STOCK_FIELDS = array('id', 'sku', 'name', 'unit', 'on_hand', 'reserved', 'incoming', 'active', 'updated_at');
-    const STOCK_KNOWN = array('id', 'sku', 'name', 'unit', 'price', 'exw_price_eur', 'cost_price_uah', 'on_hand', 'reserved', 'incoming', 'page_id', 'active', 'created_at', 'updated_at');
+    const PAYMENT_FIELDS = array('payer_name', 'reference', 'bank_transaction_id', 'id', 'amount', 'fee', 'net_amount', 'recipient_key', 'channel_key', 'received_at', 'source', 'status', 'created_at', 'settled_at', 'settlement_date_precision', 'settlement_date_source');
+    const STOCK_FIELDS = array('id', 'sku', 'name', 'unit', 'on_hand', 'reserved', 'reserved_supply', 'incoming', 'active', 'updated_at');
+    const STOCK_KNOWN = array('id', 'sku', 'name', 'unit', 'price', 'exw_price_eur', 'cost_price_uah', 'on_hand', 'reserved', 'reserved_supply', 'incoming', 'page_id', 'active', 'created_at', 'updated_at');
 
     public static function routes() {
         foreach (array('/integration-manifest' => 'manifest', '/orders' => 'lookup', '/orders/(?P<number>[A-Za-z0-9-]{1,64})/details' => 'details', '/stock' => 'stock') as $route => $method) {
@@ -43,11 +43,27 @@ final class TKD_Cloud_Read_Extensions {
         return $value;
     }
 
+    // Only fixed field paths/reasons and native type enums; no values or row indices.
+    private static function details_error($field, $reason, $value, $present = true, $code = 'tkd_schema_unverified', $status = 503) {
+        $allowed = array_merge(self::META, array('snapshot', 'response'));
+        foreach (self::ITEM_FIELDS as $key) { $allowed[] = '_tkd_fo_order_items.' . $key; }
+        foreach (self::PAYMENT_FIELDS as $key) { $allowed[] = '_tkd_fo_payments.' . $key; }
+        $reasons = array('expected_list', 'row_bound', 'expected_row', 'empty_projection', 'invalid_decimal', 'invalid_identifier', 'invalid_text', 'duplicate_id', 'duplicate_meta', 'input_bound_or_unsupported_type', 'snapshot_changed', 'response_bound');
+        $type = gettype($value);
+        if (!in_array($field, $allowed, true) || !in_array($reason, $reasons, true)) { return self::error(); }
+        if (!in_array($type, array('NULL', 'string', 'integer', 'double', 'boolean', 'array', 'object', 'resource', 'resource (closed)'), true)) { $type = 'unknown'; }
+        return new WP_Error($code, 'Stored schema did not match the read contract.', array('status' => $status,
+            'schema_diagnostic' => array('field' => $field, 'reason' => $reason, 'type' => $type, 'present' => (bool) $present)));
+    }
+
     private static function rows($rows, $payments) {
-        if (!is_array($rows) || count($rows) > self::MAX_ROWS || ($rows && array_keys($rows) !== range(0, count($rows) - 1))) { return null; }
+        $field = $payments ? '_tkd_fo_payments' : '_tkd_fo_order_items';
+        if (!is_array($rows) || ($rows && array_keys($rows) !== range(0, count($rows) - 1))) { return self::details_error($field, 'expected_list', $rows); }
+        if (count($rows) > self::MAX_ROWS) { return self::details_error($field, 'row_bound', $rows); }
         $out = array(); $ids = array();
         foreach ($rows as $row) {
-            if (!is_array($row) || count($row) > 64) { return null; }
+            if (!is_array($row)) { return self::details_error($field, 'expected_row', $row); }
+            if (count($row) > 64) { return self::details_error($field, 'row_bound', $row); }
             $projected = array();
             foreach ($payments ? self::PAYMENT_FIELDS : self::ITEM_FIELDS as $key) {
                 if (!array_key_exists($key, $row)) { continue; }
@@ -55,20 +71,16 @@ final class TKD_Cloud_Read_Extensions {
                 if ($value === null) { $projected[$key] = null; continue; }
                 if (in_array($key, array('amount', 'fee', 'net_amount', 'unit_price', 'quantity'), true)) {
                     $value = self::decimal($value, $key === 'quantity' ? 3 : 2);
-                    if ($value === null) { return null; }
+                    if ($value === null) { return self::details_error($field . '.' . $key, 'invalid_decimal', $row[$key]); }
                 } elseif (in_array($key, array('id', 'item_id'), true)) {
                     if (is_int($value) && $value >= 0) { $value = (string) $value; }
-                    if (!self::text($value, 64)) { return null; }
-                } elseif (in_array($key, array('id', 'active'), true)) {
-                    $value = (string) $value;
-                    if (!self::cursor($value)) { return self::error(); }
-                } elseif (!self::text($value, $key === 'name' ? 512 : 128)) { return null; }
+                    if (!self::text($value, 64)) { return self::details_error($field . '.' . $key, 'invalid_identifier', $row[$key]); }
+                } elseif (!self::text($value, in_array($key, array('name', 'payer_name'), true) ? 512 : 128)) { return self::details_error($field . '.' . $key, 'invalid_text', $row[$key]); }
                 $projected[$key] = $value;
             }
-            // Unknown fields never become output, including nested opaque values.
-            if (!$projected) { return null; }
+            if (!$projected) { return self::details_error($field, 'empty_projection', $row); }
             if ($payments && isset($projected['id']) && $projected['id'] !== '') {
-                if (isset($ids[$projected['id']])) { return null; }
+                if (isset($ids[$projected['id']])) { return self::details_error($field . '.id', 'duplicate_id', $row['id']); }
                 $ids[$projected['id']] = true;
             }
             $out[] = $projected;
@@ -96,33 +108,34 @@ final class TKD_Cloud_Read_Extensions {
         $base = $minimal->get_data(); $meta = array(); $bytes = 0; $nodes = 0;
         foreach (self::META as $key) {
             $values = get_post_meta($base['id'], $key, false);
-            if (count($values) > 1) { return self::error('tkd_ambiguous_metadata', 409); }
+            if (count($values) > 1) { return self::details_error($key, 'duplicate_meta', $values, true, 'tkd_ambiguous_metadata', 409); }
             if (!$values) { $meta[$key] = array('present' => false, 'value' => null); continue; }
             $value = $values[0];
             // Bound stored nested input as well as projected output, before traversal.
-            if (!self::input_bound($value, $nodes, $bytes)) { return self::error('tkd_response_bound_exceeded'); }
+            if (!self::input_bound($value, $nodes, $bytes)) { return self::details_error($key, 'input_bound_or_unsupported_type', $value, true, 'tkd_response_bound_exceeded'); }
             if ($value !== null) {
                 if ($key === '_tkd_fo_order_items' || $key === '_tkd_fo_payments') {
                     $value = self::rows($value, $key === '_tkd_fo_payments');
-                    if ($value === null) { return self::error(); }
+                    if ($value instanceof WP_Error) { return $value; }
                 } elseif (in_array($key, array('_tkd_client_total', '_tkd_confirmed_amount', '_tkd_prepayment_received'), true)) {
                     $value = self::decimal($value);
-                    if ($value === null) { return self::error(); }
+                    if ($value === null) { return self::details_error($key, 'invalid_decimal', $values[0]); }
                 } elseif ($key === '_tkd_fo_invoice_id') {
                     if (is_int($value) && $value >= 0) { $value = (string) $value; }
-                    if (!is_string($value) || !preg_match('/\A[0-9]{0,18}\z/D', $value)) { return self::error(); }
-                } elseif (!self::text($value, 512)) { return self::error(); }
+                    if (!is_string($value) || !preg_match('/\A[0-9]{0,18}\z/D', $value)) { return self::details_error($key, 'invalid_identifier', $values[0]); }
+                } elseif (!self::text($value, 512)) { return self::details_error($key, 'invalid_text', $values[0]); }
             }
             $meta[$key] = array('present' => true, 'value' => $value);
         }
-        if ($meta['_tkd_order_number']['value'] !== $base['number'] || $meta['_tkd_status']['value'] !== $base['status']) { return self::error(); }
+        if ($meta['_tkd_order_number']['value'] !== $base['number'] || $meta['_tkd_status']['value'] !== $base['status']) { return self::details_error('snapshot', 'snapshot_changed', $meta); }
         // A non-atomic read snapshot, not a write CAS or lock token.
         $base['schema_version'] = 'tkd-order-details-v1-candidate';
         $base['metadata'] = $meta;
         $base['revision'] = hash('sha256', json_encode($base, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         $base['revision_scope'] = 'informational-read-snapshot';
         $response = self::bounded($base, self::MAX_DETAILS);
-        if (!($response instanceof WP_Error)) { $response->header('ETag', '"' . $base['revision'] . '"'); }
+        if ($response instanceof WP_Error) { return self::details_error('response', 'response_bound', $base, true, 'tkd_response_bound_exceeded'); }
+        $response->header('ETag', '"' . $base['revision'] . '"');
         return $response;
     }
 
@@ -191,7 +204,7 @@ final class TKD_Cloud_Read_Extensions {
         foreach (self::STOCK_FIELDS as $field) { if (!isset($map[$field])) { return false; } }
         foreach (array('id', 'active') as $field) { if (!in_array($map[$field]['type'], array('tinyint', 'smallint', 'mediumint', 'int', 'bigint'), true)) { return false; } }
         foreach (array('sku', 'name', 'unit') as $field) { if (!in_array($map[$field]['type'], array('char', 'varchar', 'text', 'tinytext', 'mediumtext'), true)) { return false; } }
-        foreach (array('on_hand', 'reserved', 'incoming') as $field) {
+        foreach (array('on_hand', 'reserved', 'reserved_supply', 'incoming') as $field) {
             if (!in_array($map[$field]['type'], array('decimal', 'tinyint', 'smallint', 'mediumint', 'int', 'bigint'), true) || (isset($map[$field]['scale']) && $map[$field]['scale'] > 6)) { return false; }
         }
         return in_array($map['updated_at']['type'], array('datetime', 'timestamp'), true);
@@ -201,15 +214,15 @@ final class TKD_Cloud_Read_Extensions {
         return (is_int($value) || is_string($value)) && preg_match('/\A[0-9]{1,' . $max_digits . '}\z/D', (string) $value) === 1;
     }
 
-    // Fixed scale six integer arithmetic, bounded to 12 whole digits; no floats.
-    private static function available($on_hand, $reserved) {
-        $to_int = function($s) {
-            $negative = substr($s, 0, 1) === '-'; $s = ltrim($s, '-');
-            $parts = explode('.', $s, 2);
-            $v = (int) $parts[0] * 1000000 + (int) str_pad(isset($parts[1]) ? $parts[1] : '', 6, '0');
-            return $negative ? -$v : $v;
-        };
-        $v = $to_int($on_hand) - $to_int($reserved);
+    // All operands validated as <=12 whole /6 fractional digits on 64-bit PHP.
+    private static function decimal_int($s) {
+        $negative = substr($s, 0, 1) === '-'; $s = ltrim($s, '-');
+        $parts = explode('.', $s, 2);
+        $v = (int) $parts[0] * 1000000 + (int) str_pad(isset($parts[1]) ? $parts[1] : '', 6, '0');
+        return $negative ? -$v : $v;
+    }
+
+    private static function decimal_string($v) {
         return ($v < 0 ? '-' : '') . intdiv(abs($v), 1000000) . '.' . str_pad((string) (abs($v) % 1000000), 6, '0', STR_PAD_LEFT);
     }
 
@@ -243,19 +256,28 @@ final class TKD_Cloud_Read_Extensions {
             if (!self::cursor($row['id']) || (int) $row['id'] <= $last || !in_array((string) $row['active'], array('0', '1'), true)) { return self::error(); }
             foreach (self::STOCK_FIELDS as $key) {
                 $value = $row[$key];
-                if (in_array($key, array('on_hand', 'reserved', 'incoming'), true)) {
+                if (in_array($key, array('on_hand', 'reserved', 'reserved_supply', 'incoming'), true)) {
                     $value = self::decimal($value, 6); if ($value === null) { return self::error(); }
                 } elseif (in_array($key, array('id', 'active'), true)) {
                     $value = (string) $value;
                     if (!self::cursor($value)) { return self::error(); }
-                } elseif (!self::text($value, $key === 'name' ? 512 : 128)) { return self::error(); }
+                } elseif (!self::text($value, in_array($key, array('name', 'payer_name'), true) ? 512 : 128)) { return self::error(); }
                 $projected[$key] = $value;
             }
             if ($sku !== null && $projected['sku'] !== $sku) { return self::error(); }
-            $projected['available_on_hand_minus_reserved'] = self::available($projected['on_hand'], $projected['reserved']);
+            $on_hand = self::decimal_int($projected['on_hand']);
+            $reserved = self::decimal_int($projected['reserved']);
+            $supply = max(0, self::decimal_int($projected['reserved_supply']));
+            $incoming = self::decimal_int($projected['incoming']);
+            $physical_reserved = max(0, $reserved - $supply);
+            $free_physical = $on_hand - $physical_reserved;
+            $projected['available_on_hand_minus_reserved'] = self::decimal_string($on_hand - $reserved);
+            $projected['physical_reserved'] = self::decimal_string($physical_reserved);
+            $projected['free_physical'] = self::decimal_string($free_physical);
+            $projected['free_after_supply'] = self::decimal_string(max(0, $free_physical + max(0, $incoming - $supply)));
             $out[] = $projected; $last = (int) $projected['id'];
         }
-        return self::bounded(array('bridge_version' => TKD_Cloud_Reader::VERSION, 'schema_version' => 'tkd-stock-read-v1-candidate', 'rows' => $out, 'next_cursor' => $has_more ? (string) $last : null), self::MAX_DETAILS);
+        return self::bounded(array('bridge_version' => TKD_Cloud_Reader::VERSION, 'schema_version' => 'tkd-stock-read-v2-candidate', 'rows' => $out, 'next_cursor' => $has_more ? (string) $last : null), self::MAX_DETAILS);
     }
 
     public static function manifest($request) {
