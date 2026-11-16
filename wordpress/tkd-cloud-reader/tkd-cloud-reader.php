@@ -1,0 +1,139 @@
+<?php
+/**
+ * Plugin Name: TKD Cloud Reader (candidate)
+ * Description: Minimal Application Password protected order reader. Server schema review required.
+ * Version: 0.1.0
+ * Requires PHP: 7.4
+ */
+if (!defined('ABSPATH')) { exit; }
+
+final class TKD_Cloud_Reader {
+    const VERSION = '0.1.0';
+    const SCHEMA = 'tkd-order-minimal-v1-candidate';
+    const CAP = 'tkd_cloud_read_orders';
+    private static $application_user_id = 0;
+
+    public static function boot() {
+        add_action('application_password_did_authenticate', array(__CLASS__, 'authenticated'), 10, 2);
+        add_action('rest_api_init', array(__CLASS__, 'routes'));
+        add_filter('rest_post_dispatch', array(__CLASS__, 'no_store'), PHP_INT_MAX, 3);
+    }
+
+    public static function activate() {
+        $caps = array('read' => true, self::CAP => true);
+        $role = get_role('tkd_cloud_reader');
+        if ($role) {
+            // Never reuse an existing role with additional granted privileges.
+            foreach ($role->capabilities as $cap => $granted) {
+                if ($granted && !isset($caps[$cap])) {
+                    wp_die('Existing tkd_cloud_reader role has unexpected privileges. Review it before activation.');
+                }
+            }
+            if (empty($role->capabilities['read']) || empty($role->capabilities[self::CAP])) {
+                wp_die('Existing tkd_cloud_reader role differs from the required minimal role.');
+            }
+        } else {
+            add_role('tkd_cloud_reader', 'TKD Cloud Reader', $caps);
+        }
+    }
+
+    public static function authenticated($user, $item) {
+        self::$application_user_id = (int) $user->ID;
+    }
+
+    public static function routes() {
+        foreach (array('/health' => 'health', '/orders/(?P<number>[A-Za-z0-9-]{1,64})' => 'order') as $route => $callback) {
+            register_rest_route('tkd-cloud/v1', $route, array(
+                'methods' => 'GET',
+                'callback' => array(__CLASS__, $callback),
+                'permission_callback' => array(__CLASS__, 'permission'),
+            ));
+        }
+    }
+
+    public static function permission($request) {
+        if (!is_ssl()) {
+            return new WP_Error('tkd_https_required', 'HTTPS required.', array('status' => 403));
+        }
+        if (self::$application_user_id < 1 || self::$application_user_id !== (int) get_current_user_id()) {
+            return new WP_Error('tkd_application_password_required', 'Application Password authentication required.', array('status' => 401));
+        }
+        $user = wp_get_current_user();
+        // Explicit grant also prevents the multisite super-admin capability bypass.
+        if (empty($user->allcaps[self::CAP]) || !current_user_can(self::CAP)) {
+            return new WP_Error('tkd_forbidden', 'Order read permission required.', array('status' => 403));
+        }
+        if ($request->get_method() !== 'GET') {
+            return new WP_Error('tkd_method_not_allowed', 'GET required.', array('status' => 405));
+        }
+        return true;
+    }
+
+    private static function schema_error() {
+        return new WP_Error('tkd_schema_unverified', 'Expected order schema unavailable or inconsistent.', array('status' => 503));
+    }
+
+    public static function health($request) {
+        if (!post_type_exists('tkd_order')) { return self::schema_error(); }
+        return new WP_REST_Response(array('post_type_exists' => true, 'bridge_version' => self::VERSION, 'schema_version' => self::SCHEMA));
+    }
+
+    public static function order($request) {
+        if (!post_type_exists('tkd_order')) { return self::schema_error(); }
+        // Use only the path parameter; a query/body parameter cannot override it.
+        $params = $request->get_url_params();
+        $number = isset($params['number']) ? $params['number'] : null;
+        if (!is_string($number) || !preg_match('/\ATKD-[A-Za-z0-9-]{1,60}\z/D', $number)) {
+            return new WP_Error('tkd_invalid_number', 'Full TKD order number required.', array('status' => 400));
+        }
+        $statuses = array_values(array_diff(get_post_stati(), array('trash', 'auto-draft')));
+        if (!$statuses) { return self::schema_error(); }
+        $ids = get_posts(array(
+            'post_type' => 'tkd_order', 'post_status' => $statuses,
+            'posts_per_page' => 2, 'fields' => 'ids', 'no_found_rows' => true,
+            'suppress_filters' => true, 'orderby' => 'ID', 'order' => 'ASC',
+            'meta_query' => array(array('key' => '_tkd_order_number', 'value' => $number, 'compare' => '=', 'type' => 'BINARY')),
+        ));
+        if (count($ids) > 1) {
+            return new WP_Error('tkd_duplicate_number', 'Order number is not unique.', array('status' => 409));
+        }
+        if (!$ids) { return new WP_Error('tkd_not_found', 'Order not found.', array('status' => 404)); }
+        $id = (int) $ids[0];
+        $post = get_post($id);
+        if (!$post || $post->post_type !== 'tkd_order') { return self::schema_error(); }
+        if (in_array($post->post_status, array('trash', 'auto-draft'), true)) {
+            return new WP_Error('tkd_not_found', 'Order not found.', array('status' => 404));
+        }
+        $numbers = get_post_meta($id, '_tkd_order_number', false);
+        $statuses = get_post_meta($id, '_tkd_status', false);
+        if (count($numbers) !== 1 || $numbers[0] !== $number || count($statuses) !== 1
+            || !is_string($statuses[0]) || $statuses[0] === '' || strlen($statuses[0]) > 64
+            || !preg_match('/\A[A-Za-z0-9_-]+\z/D', $statuses[0])) {
+            return self::schema_error();
+        }
+        $modified = $post->post_modified_gmt;
+        $date = is_string($modified) ? DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $modified, new DateTimeZone('UTC')) : false;
+        if (!$date || $date->format('Y-m-d H:i:s') !== $modified || substr($modified, 0, 4) === '0000') {
+            return self::schema_error();
+        }
+        return new WP_REST_Response(array(
+            'id' => $id, 'number' => $number, 'status' => $statuses[0],
+            'post_modified_gmt' => $modified, 'schema_version' => self::SCHEMA, 'bridge_version' => self::VERSION,
+        ));
+    }
+
+    public static function no_store($response, $server, $request) {
+        $route = $request->get_route();
+        if ($route === '/tkd-cloud/v1' || strpos($route, '/tkd-cloud/v1/') === 0) {
+            $response = rest_ensure_response($response);
+            $response->header('Cache-Control', 'private, no-store, no-cache, must-revalidate, max-age=0');
+            $response->header('Pragma', 'no-cache');
+            $response->header('Expires', '0');
+            $response->header('Vary', 'Authorization, Cookie');
+        }
+        return $response;
+    }
+}
+TKD_Cloud_Reader::boot();
+register_activation_hook(__FILE__, array('TKD_Cloud_Reader', 'activate'));
+// Deactivation unregisters code on subsequent requests; no roles or data are deleted.

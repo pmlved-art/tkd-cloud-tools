@@ -1,0 +1,5 @@
+8dc90b508c972fd959ec56588833596d97457076bfd5e6b8191d145197e2c791  wordpress/tkd-cloud-reader/tkd-cloud-reader.php
+7efd25200254542d00c457d32f4651ead8c7da9350d089ca4ccb04a4bb224a00  wordpress/tkd-cloud-reader/uninstall.php
+3bfa85bc1e2b4168651c36f05af996a4e845aeb331f607f34e62ac9e7863ec3b  wordpress/tkd-cloud-reader/README.md
+02cf97c41522e107129ef3479b677d9cb50a9066890939ab6f7661368ba5980d  tests/php/test-reader.php
+26d735c95b77a3935080ef0d22007cc921c6f6f054e28d934d97c8b4a8305e3f  artifacts/tkd-cloud-reader-0.1.0-candidate.zip

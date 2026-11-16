@@ -1,0 +1,89 @@
+<?php
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
+// Synthetic WordPress API stubs: no live WordPress/database/authentication integration.
+define('ABSPATH', __DIR__);
+class WP_Error {
+    public $code; public $data;
+    function __construct($code, $message, $data) { $this->code=$code; $this->data=$data; }
+}
+class WP_REST_Response {
+    public $data; public $headers=array();
+    function __construct($data=array()) { $this->data=$data; }
+    function header($key,$value) { $this->headers[$key]=$value; }
+}
+class Request {
+    public $number='TKD-100'; public $method='GET'; public $route='/tkd-cloud/v1/orders/TKD-100';
+    function get_url_params() { return array('number'=>$this->number); }
+    function get_method() { return $this->method; }
+    function get_route() { return $this->route; }
+}
+$hooks=array(); $routes=array(); $role=null; $created=array(); $ssl=true; $uid=7; $cap=true; $explicit_cap=true; $exists=true;
+$ids=array(12); $numbers=array('TKD-100'); $statuses=array('new');
+$post=(object)array('post_type'=>'tkd_order','post_status'=>'publish','post_modified_gmt'=>'2026-11-16 12:00:00');
+function add_action($name,$fn,$priority=10,$argc=1) { $GLOBALS['hooks'][$name]=$fn; }
+function add_filter($name,$fn,$priority=10,$argc=1) { $GLOBALS['hooks'][$name]=$fn; }
+function register_activation_hook($file,$fn) {}
+function get_role($name) { return $GLOBALS['role']; }
+function add_role($name,$label,$caps) { $GLOBALS['created']=array($name,$caps); }
+function wp_die($message) { throw new RuntimeException($message); }
+function register_rest_route($namespace,$route,$definition) { $GLOBALS['routes'][$namespace.$route]=$definition; }
+function is_ssl() { return $GLOBALS['ssl']; }
+function get_current_user_id() { return $GLOBALS['uid']; }
+function current_user_can($cap) { if ($cap!=='tkd_cloud_read_orders') throw new Exception('Unexpected capability'); return $GLOBALS['cap']; }
+function wp_get_current_user() { return (object)array('allcaps'=>array('tkd_cloud_read_orders'=>$GLOBALS['explicit_cap'])); }
+function post_type_exists($type) { if ($type!=='tkd_order') throw new Exception('Fallback type'); return $GLOBALS['exists']; }
+function get_post_stati() { return array('publish','private','draft','pending','trash','auto-draft'); }
+function get_posts($args) { $GLOBALS['query']=$args; return $GLOBALS['ids']; }
+function get_post($id) { return $GLOBALS['post']; }
+function get_post_meta($id,$key,$single) {
+    if ($single!==false) throw new Exception('Must detect duplicate meta');
+    if ($key==='_tkd_order_number') return $GLOBALS['numbers'];
+    if ($key==='_tkd_status') return $GLOBALS['statuses'];
+    throw new Exception('Unexpected metadata access');
+}
+function rest_ensure_response($r) { return $r; }
+$plugin=__DIR__.'/../../wordpress/tkd-cloud-reader/tkd-cloud-reader.php';
+require is_file($plugin) ? $plugin : __DIR__.'/../tkd-cloud-reader.php';
+$count=0;
+function check($ok,$name) { global $count; if (!$ok) throw new Exception('FAIL: '.$name); $count++; echo "ok $count - $name\n"; }
+function error_status($value,$status) { return $value instanceof WP_Error && $value->data['status']===$status; }
+$r=new Request();
+check(isset($hooks['application_password_did_authenticate']), 'native authentication hook registered');
+TKD_Cloud_Reader::activate();
+check($created===array('tkd_cloud_reader',array('read'=>true,'tkd_cloud_read_orders'=>true)), 'only minimal role created');
+$role=(object)array('capabilities'=>array('read'=>true,'tkd_cloud_read_orders'=>true,'manage_options'=>true));
+try { TKD_Cloud_Reader::activate(); check(false,'conflicting role'); } catch (RuntimeException $e) { check(true,'existing privileged role rejected'); }
+TKD_Cloud_Reader::routes();
+check(count($routes)===2,'exactly two routes');
+foreach ($routes as $route) check($route['methods']==='GET' && $route['permission_callback']===array('TKD_Cloud_Reader','permission'),'GET only with permission callback');
+check(error_status(TKD_Cloud_Reader::permission($r),401),'cookie/current user alone rejected');
+TKD_Cloud_Reader::authenticated((object)array('ID'=>7),array());
+$ssl=false; check(error_status(TKD_Cloud_Reader::permission($r),403),'HTTP rejected'); $ssl=true;
+$uid=8; check(error_status(TKD_Cloud_Reader::permission($r),401),'authenticated user mismatch rejected'); $uid=7;
+$cap=false; check(error_status(TKD_Cloud_Reader::permission($r),403),'application password without capability rejected including admin'); $cap=true;
+$explicit_cap=false; check(error_status(TKD_Cloud_Reader::permission($r),403),'super-admin implicit bypass rejected'); $explicit_cap=true;
+check(TKD_Cloud_Reader::permission($r)===true,'application user plus capability accepted');
+foreach(array('POST','PUT','DELETE','PATCH','HEAD') as $method) { $r->method=$method; check(error_status(TKD_Cloud_Reader::permission($r),405),'reject '.$method); } $r->method='GET';
+$exists=false; check(error_status(TKD_Cloud_Reader::health($r),503) && error_status(TKD_Cloud_Reader::order($r),503),'missing post type fails closed'); $exists=true;
+check(TKD_Cloud_Reader::health($r)->data['post_type_exists']===true,'health confirms type');
+foreach(array('100','tkd-100','TKD-','TKD-100%','TKD-'.str_repeat('A',61)) as $number) { $r->number=$number; check(error_status(TKD_Cloud_Reader::order($r),400),'invalid full number rejected'); } $r->number='TKD-100';
+$response=TKD_Cloud_Reader::order($r);
+check(array_keys($response->data)===array('id','number','status','post_modified_gmt','schema_version','bridge_version'),'response contains only allowlisted fields');
+check($response->data['number']==='TKD-100' && $response->data['status']==='new','stored number/status preserved');
+check($query['post_type']==='tkd_order' && $query['meta_query'][0]===array('key'=>'_tkd_order_number','value'=>'TKD-100','compare'=>'=','type'=>'BINARY'),'exact binary meta query no suffix or type fallback');
+check(!in_array('trash',$query['post_status'],true) && !in_array('auto-draft',$query['post_status'],true) && $query['posts_per_page']===2,'excluded statuses and bounded duplicate lookup');
+$ids=array(); check(error_status(TKD_Cloud_Reader::order($r),404),'missing order');
+$ids=array(12,13); check(error_status(TKD_Cloud_Reader::order($r),409),'duplicate orders'); $ids=array(12);
+foreach(array('trash','auto-draft') as $status) { $post->post_status=$status; check(error_status(TKD_Cloud_Reader::order($r),404),'race to excluded status'); } $post->post_status='publish';
+$post->post_type='shop_order'; check(error_status(TKD_Cloud_Reader::order($r),503),'wrong type fails closed'); $post->post_type='tkd_order';
+foreach(array(array(),array('tkd-100'),array('TKD-100','TKD-100')) as $bad) { $numbers=$bad; check(error_status(TKD_Cloud_Reader::order($r),503),'inconsistent number metadata'); } $numbers=array('TKD-100');
+foreach(array(array(),array(''),array('new','paid'),array(array('bad')),array('customer@example.test')) as $bad) { $statuses=$bad; check(error_status(TKD_Cloud_Reader::order($r),503),'inconsistent status metadata'); } $statuses=array('new');
+foreach(array('0000-00-00 00:00:00','2026-02-31 12:00:00','invalid') as $bad) { $post->post_modified_gmt=$bad; check(error_status(TKD_Cloud_Reader::order($r),503),'invalid GMT date'); }
+foreach(array('/tkd-cloud/v1/health','/tkd-cloud/v1/orders/TKD-100','/tkd-cloud/v1/unknown') as $route) {
+ $r->route=$route;
+ // WordPress rest_post_dispatch receives normalized success AND error responses.
+ $res=TKD_Cloud_Reader::no_store(new WP_REST_Response(array('code'=>'synthetic_error')),null,$r);
+ check(strpos($res->headers['Cache-Control'],'no-store')!==false && $res->headers['Vary']==='Authorization, Cookie','no-store including normalized errors/unknown routes');
+}
+$r->route='/other/v1'; check(TKD_Cloud_Reader::no_store(new WP_REST_Response(),null,$r)->headers===array(),'unrelated routes unchanged');
+echo "PASS $count synthetic assertions; not live WordPress integration\n";
