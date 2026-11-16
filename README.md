@@ -53,3 +53,9 @@ python3 scripts/preflight.py --site tkd
 створити коміт і звичайний push. Не використовувати force push.
 Вся локальна робоча папка Mac, банківські виписки, резервні копії й паролі
 до репозиторію не належать.
+
+## Read adapter 0.2.0 candidate
+
+Контракт нових GET manifest/details/lookup/stock та межі перевірок:
+[wordpress/tkd-cloud-reader/README.md](wordpress/tkd-cloud-reader/README.md).
+Це read-only етап звірки живих модулів; business writes ще не підключені.

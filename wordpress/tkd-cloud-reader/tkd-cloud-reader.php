@@ -2,13 +2,13 @@
 /**
  * Plugin Name: TKD Cloud Reader (candidate)
  * Description: Minimal Application Password protected order reader. Server schema review required.
- * Version: 0.1.1
+ * Version: 0.2.0
  * Requires PHP: 7.4
  */
 if (!defined('ABSPATH')) { exit; }
 
 final class TKD_Cloud_Reader {
-    const VERSION = '0.1.1';
+    const VERSION = '0.2.0';
     const SCHEMA = 'tkd-order-minimal-v1-candidate';
     const CAP = 'tkd_cloud_read_orders';
     private static $application_user_id = 0;
@@ -42,6 +42,7 @@ final class TKD_Cloud_Reader {
     }
 
     public static function routes() {
+        TKD_Cloud_Read_Extensions::routes();
         foreach (array('/health' => 'health', '/orders/(?P<number>[A-Za-z0-9-]{1,64})' => 'order') as $route => $callback) {
             register_rest_route('tkd-cloud/v1', $route, array(
                 'methods' => 'GET',
@@ -105,10 +106,14 @@ final class TKD_Cloud_Reader {
     }
 
     public static function order($request) {
-        if (!post_type_exists('tkd_order')) { return self::schema_error(); }
         // Use only the path parameter; a query/body parameter cannot override it.
         $params = $request->get_url_params();
         $number = isset($params['number']) ? $params['number'] : null;
+        return self::read_number($number);
+    }
+
+    public static function read_number($number) {
+        if (!post_type_exists('tkd_order')) { return self::schema_error(); }
         if (!is_string($number) || !preg_match('/\ATKD-[A-Za-z0-9-]{1,60}\z/D', $number)) {
             return new WP_Error('tkd_invalid_number', 'Full TKD order number required.', array('status' => 400));
         }
@@ -160,6 +165,7 @@ final class TKD_Cloud_Reader {
         return $response;
     }
 }
+require_once __DIR__ . '/read-extensions.php';
 TKD_Cloud_Reader::boot();
 register_activation_hook(__FILE__, array('TKD_Cloud_Reader', 'activate'));
 // Deactivation unregisters code on subsequent requests; no roles or data are deleted.

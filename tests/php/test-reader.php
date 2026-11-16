@@ -10,10 +10,13 @@ class WP_Error {
 class WP_REST_Response {
     public $data; public $headers=array();
     function __construct($data=array()) { $this->data=$data; }
+    function get_data() { return $this->data; }
     function header($key,$value) { $this->headers[$key]=$value; }
 }
 class Request {
     public $number='TKD-100'; public $method='GET'; public $route='/tkd-cloud/v1/orders/TKD-100';
+    public $query_params=array();
+    function get_query_params() { return $this->query_params; }
     function get_url_params() { return array('number'=>$this->number); }
     function get_method() { return $this->method; }
     function get_route() { return $this->route; }
@@ -40,6 +43,7 @@ function get_post_meta($id,$key,$single) {
     if ($single!==false) throw new Exception('Must detect duplicate meta');
     if ($key==='_tkd_order_number') return $GLOBALS['numbers'];
     if ($key==='_tkd_status') return $GLOBALS['statuses'];
+    if (in_array($key, TKD_Cloud_Read_Extensions::META,true)) return isset($GLOBALS['extra_meta'][$key]) ? $GLOBALS['extra_meta'][$key] : array();
     throw new Exception('Unexpected metadata access');
 }
 function rest_ensure_response($r) { return $r; }
@@ -55,7 +59,7 @@ check($created===array('tkd_cloud_reader',array('read'=>true,'tkd_cloud_read_ord
 $role=(object)array('capabilities'=>array('read'=>true,'tkd_cloud_read_orders'=>true,'manage_options'=>true));
 try { TKD_Cloud_Reader::activate(); check(false,'conflicting role'); } catch (RuntimeException $e) { check(true,'existing privileged role rejected'); }
 TKD_Cloud_Reader::routes();
-check(count($routes)===2,'exactly two routes');
+check(count($routes)===6,'exactly six GET routes');
 foreach ($routes as $route) check($route['methods']==='GET' && $route['permission_callback']===array('TKD_Cloud_Reader','permission'),'GET only with permission callback');
 check(error_status(TKD_Cloud_Reader::permission($r),401),'cookie/current user alone rejected');
 $r->route='/tkd-cloud/v1/health';
