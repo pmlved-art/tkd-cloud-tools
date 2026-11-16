@@ -2,6 +2,7 @@
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 // Synthetic WordPress API stubs: no live WordPress/database/authentication integration.
 define('ABSPATH', __DIR__);
+class WP_User { public $ID; function __construct($id) { $this->ID=$id; } }
 class WP_Error {
     public $code; public $data;
     function __construct($code, $message, $data) { $this->code=$code; $this->data=$data; }
@@ -57,6 +58,32 @@ TKD_Cloud_Reader::routes();
 check(count($routes)===2,'exactly two routes');
 foreach ($routes as $route) check($route['methods']==='GET' && $route['permission_callback']===array('TKD_Cloud_Reader','permission'),'GET only with permission callback');
 check(error_status(TKD_Cloud_Reader::permission($r),401),'cookie/current user alone rejected');
+$r->route='/tkd-cloud/v1/health';
+$_SERVER=array();
+$diag=TKD_Cloud_Reader::permission($r)->data['auth_diagnostics'];
+check(count($diag)===8 && array_values(array_unique(array_map('gettype',$diag)))===array('boolean'),'diagnostics contain only eight booleans');
+check(count(array_filter($diag))===0,'missing inputs are false');
+$_SERVER=array('HTTP_AUTHORIZATION'=>'Basic SYNTHETIC', 'REDIRECT_HTTP_AUTHORIZATION'=>'Bearer SYNTHETIC', 'PHP_AUTH_USER'=>'synthetic', 'PHP_AUTH_PW'=>'synthetic');
+$wp_rest_application_password_status=new WP_User(7); $wp_rest_application_password_uuid='synthetic-uuid';
+$diag=TKD_Cloud_Reader::permission($r)->data['auth_diagnostics'];
+check(count(array_filter($diag))===8,'present inputs and matching native core status observed');
+check(error_status(TKD_Cloud_Reader::permission($r),401),'core diagnostics do not bypass original hook requirement');
+$wp_rest_application_password_status=new WP_User(8);
+$diag=TKD_Cloud_Reader::permission($r)->data['auth_diagnostics'];
+check($diag['native_app_password_status_is_user'] && !$diag['native_app_password_user_matches_current'],'native user mismatch observed');
+$wp_rest_application_password_status=new WP_Error('synthetic','synthetic',array()); $wp_rest_application_password_uuid=null;
+$_SERVER=array('HTTP_AUTHORIZATION'=>'Bearer SYNTHETIC','REDIRECT_HTTP_AUTHORIZATION'=>'bAsIc SYNTHETIC');
+$diag=TKD_Cloud_Reader::permission($r)->data['auth_diagnostics'];
+check($diag['authorization_basic_scheme'] && !$diag['native_app_password_status_is_user'] && !$diag['native_app_password_uuid_present'],'redirect Basic detected without decoding; native error false');
+$_SERVER=array('HTTP_AUTHORIZATION'=>array('unexpected'));
+$diag=TKD_Cloud_Reader::permission($r)->data['auth_diagnostics'];
+check(!$diag['http_authorization_present'] && !$diag['authorization_basic_scheme'],'non-string header rejected safely');
+$r->route='/tkd-cloud/v1/orders/TKD-100';
+check(!isset(TKD_Cloud_Reader::permission($r)->data['auth_diagnostics']),'order errors contain no diagnostics');
+$r->route='/tkd-cloud/v1/health'; $r->method='POST';
+check(!isset(TKD_Cloud_Reader::permission($r)->data['auth_diagnostics']),'non-GET contains no diagnostics');
+$r->method='GET'; $r->route='/tkd-cloud/v1/orders/TKD-100'; $_SERVER=array();
+$wp_rest_application_password_status=null; $wp_rest_application_password_uuid=null;
 TKD_Cloud_Reader::authenticated((object)array('ID'=>7),array());
 $ssl=false; check(error_status(TKD_Cloud_Reader::permission($r),403),'HTTP rejected'); $ssl=true;
 $uid=8; check(error_status(TKD_Cloud_Reader::permission($r),401),'authenticated user mismatch rejected'); $uid=7;

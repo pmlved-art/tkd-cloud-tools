@@ -2,13 +2,13 @@
 /**
  * Plugin Name: TKD Cloud Reader (candidate)
  * Description: Minimal Application Password protected order reader. Server schema review required.
- * Version: 0.1.0
+ * Version: 0.1.1
  * Requires PHP: 7.4
  */
 if (!defined('ABSPATH')) { exit; }
 
 final class TKD_Cloud_Reader {
-    const VERSION = '0.1.0';
+    const VERSION = '0.1.1';
     const SCHEMA = 'tkd-order-minimal-v1-candidate';
     const CAP = 'tkd_cloud_read_orders';
     private static $application_user_id = 0;
@@ -56,7 +56,11 @@ final class TKD_Cloud_Reader {
             return new WP_Error('tkd_https_required', 'HTTPS required.', array('status' => 403));
         }
         if (self::$application_user_id < 1 || self::$application_user_id !== (int) get_current_user_id()) {
-            return new WP_Error('tkd_application_password_required', 'Application Password authentication required.', array('status' => 401));
+            $data = array('status' => 401);
+            if ($request->get_method() === 'GET' && $request->get_route() === '/tkd-cloud/v1/health') {
+                $data['auth_diagnostics'] = self::auth_diagnostics();
+            }
+            return new WP_Error('tkd_application_password_required', 'Application Password authentication required.', $data);
         }
         $user = wp_get_current_user();
         // Explicit grant also prevents the multisite super-admin capability bypass.
@@ -67,6 +71,28 @@ final class TKD_Cloud_Reader {
             return new WP_Error('tkd_method_not_allowed', 'GET required.', array('status' => 405));
         }
         return true;
+    }
+
+    private static function auth_diagnostics() {
+        // Request-local observations only. Never decode Basic or return values.
+        // Core: rest_application_password_collect_status(), wp-includes/rest-api.php.
+        global $wp_rest_application_password_status, $wp_rest_application_password_uuid;
+        $http = isset($_SERVER['HTTP_AUTHORIZATION']) && is_string($_SERVER['HTTP_AUTHORIZATION']) && $_SERVER['HTTP_AUTHORIZATION'] !== '';
+        $redirect = isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION']) && is_string($_SERVER['REDIRECT_HTTP_AUTHORIZATION']) && $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] !== '';
+        $basic = ($http && preg_match('/\ABasic[ \t]+/i', $_SERVER['HTTP_AUTHORIZATION']) === 1)
+            || ($redirect && preg_match('/\ABasic[ \t]+/i', $_SERVER['REDIRECT_HTTP_AUTHORIZATION']) === 1);
+        $native_user = $wp_rest_application_password_status instanceof WP_User;
+        return array(
+            'http_authorization_present' => $http,
+            'redirect_http_authorization_present' => $redirect,
+            'authorization_basic_scheme' => $basic,
+            'php_auth_user_present' => isset($_SERVER['PHP_AUTH_USER']) && is_string($_SERVER['PHP_AUTH_USER']) && $_SERVER['PHP_AUTH_USER'] !== '',
+            'php_auth_pw_present' => isset($_SERVER['PHP_AUTH_PW']) && is_string($_SERVER['PHP_AUTH_PW']) && $_SERVER['PHP_AUTH_PW'] !== '',
+            'native_app_password_status_is_user' => $native_user,
+            'native_app_password_user_matches_current' => $native_user && (int) $wp_rest_application_password_status->ID > 0
+                && (int) $wp_rest_application_password_status->ID === (int) get_current_user_id(),
+            'native_app_password_uuid_present' => is_string($wp_rest_application_password_uuid) && $wp_rest_application_password_uuid !== '',
+        );
     }
 
     private static function schema_error() {

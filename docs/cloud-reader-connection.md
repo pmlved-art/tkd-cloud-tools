@@ -69,3 +69,10 @@ Cloud; перевірити відмову нового health. Очистити
 Тести синтетичні: перевіряють literal header, exact host/443, GET/TLS/proxy,
 відмову редиректів, bounds/schema/redaction та offline encoding/очищення.
 Вони не доводять справність реальної proxy secret substitution чи WP auth.
+
+## Діагностичне оновлення 0.1.1
+
+Клієнт приймає тільки відомі bridge versions 0.1.0 і 0.1.1 та повертає фактичну
+версію. Schema version незмінна. Для отримання boolean auth diagnostics при
+health401 потрібен окремий контрольований запит: звичайний CLI, як і раніше,
+повертає тільки HTTP/result. Правила доступу плагіна не змінювалися.

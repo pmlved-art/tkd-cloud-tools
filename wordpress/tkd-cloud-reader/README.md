@@ -1,4 +1,4 @@
-# TKD Cloud Reader 0.1.0 — кандидат для серверної перевірки
+# TKD Cloud Reader 0.1.1 — кандидат для серверної перевірки
 
 НЕ встановлено на production. Жива схема TKD_FO_Orders не звірена.
 Відомі лише локальні назви: post_type `tkd_order`, метаполя
@@ -17,7 +17,7 @@ Application Password authentication. Наявність типу в health не 
 ## Встановлення після серверної перевірки
 
 1. Звірити SHA-256 ZIP. У WordPress: Plugins → Add New → Upload Plugin;
-   вибрати `tkd-cloud-reader-0.1.0-candidate.zip`, Install Now, Activate.
+   вибрати `tkd-cloud-reader-0.1.1-candidate.zip`, Install Now, Activate.
    Це ручний крок власника; пакет сам нічого не розгортає.
 2. Активація додає тільки роль `tkd_cloud_reader` з `read` і
    `tkd_cloud_read_orders`. Не створює користувача або ключа. Існуюча роль
@@ -87,3 +87,28 @@ Lint: `php -l tkd-cloud-reader.php` і `php -l uninstall.php`.
 реального WordPress, його SQL, сервера, proxy, authentication чи cache.
 `php tests/test-reader.php` запускається тільки CLI; тестові stubs не повинні
 виконуватися через веб. Ніякі production дані не входять до fixtures.
+
+## 0.1.1: тимчасова boolean-діагностика health401
+
+Тільки GET health з помилкою `tkd_application_password_required` додає
+`data.auth_diagnostics`: http_authorization_present,
+redirect_http_authorization_present, authorization_basic_scheme,
+php_auth_user_present, php_auth_pw_present, native_app_password_status_is_user,
+native_app_password_user_matches_current, native_app_password_uuid_present.
+Усі значення boolean. Немає значень/довжин/фрагментів/хешів заголовків,
+user ID, UUID або decoded credentials. Orders401 діагностики не містить.
+Це спостереження, не fallback автентифікації: чинний hook/cap/HTTPS/GET
+залишено без змін. Basic scheme не доводить правильність чи підстановку секрету.
+
+Офіційне джерело: WordPress core `wp-includes/rest-api.php`,
+`rest_application_password_collect_status` (з 5.6) встановлює request-local
+`wp_rest_application_password_status` (WP_User/WP_Error) та
+`wp_rest_application_password_uuid`; `rest_get_authenticated_app_password`
+повертає останній (з 5.7).
+https://github.com/WordPress/wordpress-develop/blob/6.8/src/wp-includes/rest-api.php
+Цей пакет не викликає collector і не змінює його globals.
+Оновлення: вручну Upload Plugin → Replace current with uploaded; існуючу
+роль/користувача/Application Password не видаляти й не створювати повторно.
+Після оновлення повторити health з чинним binding і анонімно. Перевірити лише
+boolean-поля, не виводити raw headers або credentials. Native WP auth errors,
+які виникають до permission callback, не переписуються цим плагіном.

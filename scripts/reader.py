@@ -12,7 +12,8 @@ from scripts.preflight import NoRedirect
 
 BASE = 'https://tkd-ukraine.com.ua:443/wp-json/tkd-cloud/v1/'
 SECRET = 'TKD_CLOUD_AUTHORIZATION'
-VERSION = '0.1.0'
+VERSION = '0.1.1'
+KNOWN_VERSIONS = ('0.1.0', '0.1.1')
 SCHEMA = 'tkd-order-minimal-v1-candidate'
 MAX_BODY = 16384
 
@@ -45,7 +46,7 @@ def read_bridge(number=None):
                 return {'result': 'schema_mismatch'}
             expected = {'bridge_version', 'schema_version'}
             expected |= {'post_type_exists'} if number is None else {'id', 'number', 'status', 'post_modified_gmt'}
-            valid = set(data) == expected and data.get('bridge_version') == VERSION and data.get('schema_version') == SCHEMA
+            valid = set(data) == expected and data.get('bridge_version') in KNOWN_VERSIONS and data.get('schema_version') == SCHEMA
             if number is None:
                 valid = valid and data.get('post_type_exists') is True
             else:
@@ -60,7 +61,7 @@ def read_bridge(number=None):
                 return {'result': 'schema_mismatch'}
             # Never return/log response body, order number, id, status or headers.
             return {'result': 'health_verified' if number is None else 'order_schema_verified',
-                    'http_status': 200, 'bridge_version': VERSION, 'schema_version': SCHEMA}
+                    'http_status': 200, 'bridge_version': data['bridge_version'], 'schema_version': SCHEMA}
     except HTTPError as error:
         code = error.code
         error.close()

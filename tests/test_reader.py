@@ -59,6 +59,13 @@ class ReaderTests(unittest.TestCase):
     def test_health_literal_binding_tls_proxy_and_get(self):
         self.assertEqual(self.run_response()['result'], 'health_verified')
 
+    def test_known_versions_only(self):
+        for version in ('0.1.0', '0.1.1'):
+            r = self.run_response(dict(self.data, bridge_version=version))
+            self.assertEqual(r['result'], 'health_verified')
+            self.assertEqual(r['bridge_version'], version)
+        self.assertEqual(self.run_response(dict(self.data, bridge_version='0.1.2'))['result'], 'schema_mismatch')
+
     def test_order_redacted(self):
         d = {'bridge_version': VERSION, 'schema_version': SCHEMA, 'id': 12, 'number': 'TKD-SYNTHETIC', 'status': 'new', 'post_modified_gmt': '2026-11-17 00:00:00'}
         r = self.run_response(d, 'TKD-SYNTHETIC')
