@@ -34,9 +34,9 @@ def validate_url(url):
 
 def inspect_site(site, opener=None):
     url = validate_url(SITES[site] + "/wp-json/")
-    # Disable implicit proxies/.netrc credentials. Network access may be provided
-    # transparently by the managed environment; never add a secret to this probe.
-    opener = opener or build_opener(ProxyHandler({}), NoRedirect(),
+    # Honor the managed environment proxy; never add origin credentials.
+    # urllib does not read .netrc or install a cookie handler here.
+    opener = opener or build_opener(ProxyHandler(), NoRedirect(),
                                    HTTPSHandler(context=ssl.create_default_context()))
     request = Request(url, headers={"Accept": "application/json",
                                    "User-Agent": "TKD-Cloud-Public-Preflight/1.0"})

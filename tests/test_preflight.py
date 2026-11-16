@@ -1,6 +1,9 @@
 import io
 import json
 import unittest
+import ssl
+from unittest.mock import patch
+from urllib.request import HTTPSHandler, ProxyHandler
 from urllib.error import HTTPError, URLError
 from scripts.preflight import MAX_BODY, NoRedirect, inspect_site, validate_url
 
@@ -24,6 +27,27 @@ class Opener:
 
 
 class PreflightTests(unittest.TestCase):
+    def test_managed_proxy_and_tls_are_preserved(self):
+        from urllib.request import build_opener as real_build_opener
+        captured = []
+
+        def capture(*handlers):
+            captured.extend(handlers)
+            real_build_opener(*handlers)
+            return Opener(b'{"namespaces": ["wp/v2"]}')
+
+        with patch.dict("os.environ", {"https_proxy": "http://managed-proxy.test:8080"}, clear=True):
+            with patch("scripts.preflight.build_opener", side_effect=capture):
+                result = inspect_site("tkd")
+        proxy = next(h for h in captured if isinstance(h, ProxyHandler))
+        self.assertEqual(proxy.proxies["https"], "http://managed-proxy.test:8080")
+        tls = next(h for h in captured if isinstance(h, HTTPSHandler))._context
+        self.assertTrue(tls.check_hostname)
+        self.assertEqual(tls.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(any(isinstance(h, NoRedirect) for h in captured))
+        self.assertEqual(result["result"], "public_index_reachable")
+        self.assertNotIn("managed-proxy", json.dumps(result))
+
     def test_only_exact_https_destinations(self):
         bad = ["http://tkd-ukraine.com.ua/wp-json/",
                "https://tkd-ukraine.com.ua.evil.test/wp-json/",
