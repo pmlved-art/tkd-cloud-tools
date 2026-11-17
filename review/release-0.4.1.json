@@ -1,9 +1,9 @@
 {
   "version": "0.4.1",
-  "source_review_complete": false,
+  "source_review_complete": true,
   "base_source_commit": "fc552056391c5a664abd598746b974c8c3792010",
   "evidence_commit": "41c9248",
-  "independent_review": "Pending; installer intentionally blocked until reviewer approval",
+  "independent_review": "Compared all production changes against fc552056: two exact live hash updates, four fixed dependency guards, version/README. No native business code, roles, credentials, mutation logic or routes changed.",
   "local_tests": {
     "php": [
       "8.4"
@@ -36,5 +36,19 @@
     "tkd-cloud-reader/delivery-creation-lock.php": "8528ba6aeb917a0b88f28a870ccb32e5bc056b5cb95ab343c1022ca4fc16bc26",
     "tkd-cloud-reader/uninstall.php": "7efd25200254542d00c457d32f4651ead8c7da9350d089ca4ccb04a4bb224a00",
     "tkd-cloud-reader/README.md": "358a24086e084d2366c4d346bee617bd1a1fea46c0e4aa08b24eeeedfcfcaef2"
+  },
+  "reviewed_code_commit": "fd5021da5c1044d03eb2c66300195073bf193269",
+  "independent_local_tests": {
+    "php": [
+      "7.4",
+      "8.4"
+    ],
+    "gateway_aggregate": 163,
+    "returning_ownership": 50,
+    "pdf_boundaries": 14,
+    "shared_creation_lock": 16,
+    "read_extensions_aggregate": 121,
+    "python": 43,
+    "production_mutations": false
   }
 }
