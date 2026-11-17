@@ -198,9 +198,9 @@ final class TKD_Cloud_Document_Operations {
         if(!in_array($seller,array('no_vat','fop_pm','fop_rv','fop_tp','fop_md','fop_eo','vat'),true)){throw new RuntimeException('seller');}
         $items=self::remaining_items($s,$invoice);if(!$items){throw new RuntimeException('allocation');}
         $date=wp_date('Y-m-d');$year=wp_date('Y');$key='tkd_fo_delivery_sequence_'.$seller.'_'.$year;
-        $lock='tkd_cloud_delivery_'.substr(hash('sha256',$wpdb->prefix.'|'.$key),0,40);
-        if((string)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,5)',$lock))!=='1'){throw new RuntimeException('number_lock');}
+        $lock=TKD_Cloud_Delivery_Creation_Lock::acquire();
         try{
+            TKD_Cloud_Delivery_Creation_Lock::fresh_sequence($seller);
             $next=get_option($key,0);if((!is_int($next)&&(!is_string($next)||!preg_match('/\A[0-9]{1,9}\z/D',$next)))||(int)$next<0||(int)$next>999999999){throw new RuntimeException('number_schema');}$next=(int)$next+1;
             $number='';for($i=0;$i<100;$i++,$next++){$candidate=$year.'-'.str_pad((string)$next,4,'0',STR_PAD_LEFT);$dupes=get_posts(array('post_type'=>'tkd_delivery','post_status'=>'any','posts_per_page'=>2,'fields'=>'ids','meta_query'=>array(array('key'=>'_tkd_fo_delivery_seller_key','value'=>$seller),array('key'=>'_tkd_fo_delivery_number','value'=>$candidate))));if(!is_array($dupes)){throw new RuntimeException('number_query');}if(!$dupes){$number=$candidate;break;}}
             if($number===''){throw new RuntimeException('number_bound');}update_option($key,$next,false);if((int)get_option($key)!==$next){throw new RuntimeException('sequence_readback');}
@@ -211,7 +211,7 @@ final class TKD_Cloud_Document_Operations {
             $dupes=get_posts(array('post_type'=>'tkd_delivery','post_status'=>'any','posts_per_page'=>2,'fields'=>'ids','meta_query'=>array(array('key'=>'_tkd_fo_delivery_seller_key','value'=>$seller),array('key'=>'_tkd_fo_delivery_number','value'=>$number))));if(!is_array($dupes)||array_map('intval',$dupes)!==array($id)){throw new RuntimeException('number_ambiguous');}
             TKD_FO_Orders::claim_responsibility($p['order_id'],'Створено видаткову № '.$number);
             return self::ownership($p,$s)?array('complete','document_verified',$id):array('unknown','native_effect_unverified',$id);
-        }finally{$wpdb->get_var($wpdb->prepare('SELECT RELEASE_LOCK(%s)',$lock));}
+        }finally{TKD_Cloud_Delivery_Creation_Lock::release($lock);}
     }
     private static function delivery_candidate($s,$delivery,$rows){
         if(($s['documents'][$delivery]['type']??'')!=='tkd_delivery'||self::value($s,$delivery,'_tkd_fo_delivery_status')!=='draft'||self::value($s,$delivery,'_tkd_fo_delivery_handover_post_v1')!==''||!in_array(self::value($s,$delivery,'_tkd_fo_delivery_stock_journal'),array('',array()),true)){return null;}
