@@ -1,6 +1,7 @@
 <?php
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 require __DIR__.'/test-operations.php';
+function sanitize_key($value){return preg_replace('/[^a-z0-9_\-]/','',strtolower($value));}
 define('REST_REQUEST',true);
 function wp_insert_post($data,$error=false){$id=40;$GLOBALS['business_writes']++;$GLOBALS['document_posts'][$id]=(object)($data+array('post_modified_gmt'=>'2026-11-17 00:00:00','post_date_gmt'=>'2026-11-17 00:00:00'));$GLOBALS['document_ids']['tkd_delivery'][]=$id;return $id;}
 function is_wp_error($v){return $v instanceof WP_Error;}
