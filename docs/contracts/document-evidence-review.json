@@ -1,0 +1,17 @@
+{
+  "source_sha256_verified": 58,
+  "exact_public_saved_live_verified": 16,
+  "candidate_file_differs_from_saved_live": [
+    "TKD_FO_Invoices",
+    "TKD_FO_Orders"
+  ],
+  "new_classes_require_runtime_pins": [
+    "TKD_Sales_Release",
+    "TKD_Warehouse_Scanner",
+    "TKD_Sales_Fiscal_Gate",
+    "TKD_NP_Dispatch",
+    "TKD_FO_Dispatch",
+    "TKD_FO_Multi_Seller"
+  ],
+  "runtime_writes_enabled": false
+}

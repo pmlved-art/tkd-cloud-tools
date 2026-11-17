@@ -8,15 +8,15 @@ class OpRequest {
  public $method='POST'; public $json; public $params=array(); public $query=array(); public $route='/tkd-cloud/v1/operations';public $extra_body='';
  function get_method(){return $this->method;} function get_json_params(){return $this->json;}function get_body(){return $this->extra_body?:json_encode($this->json);}function get_url_params(){return $this->params;}function get_query_params(){return $this->query;}function get_route(){return $this->route;}
 }
-function add_action(...$a){}function add_filter(...$a){}function register_activation_hook(...$a){}function register_rest_route(...$a){}
+function add_action(...$a){}function add_filter($name,$cb,...$a){$GLOBALS['test_filters'][$name]=$cb;}function remove_filter($name,$cb,...$a){unset($GLOBALS['test_filters'][$name]);}function register_activation_hook(...$a){}function register_rest_route(...$a){}
 function rest_ensure_response($r){return $r;}function is_ssl(){return $GLOBALS['ssl'];}function get_current_user_id(){return $GLOBALS['actor'];}
 function wp_get_current_user(){return (object)array('allcaps'=>$GLOBALS['caps']);}
 function current_user_can($c,...$args){return $c==='edit_post'?$GLOBALS['edit_allowed']:!empty($GLOBALS['caps'][$c]);}
 function wp_check_post_lock($id){return $GLOBALS['editor_lock']??false;}function apply_filters($name,$v){return $v;}
 function wp_cache_delete(...$a){return true;}function get_post_stati(){return array('publish','private','trash','auto-draft');}
 function post_type_exists($t){return $t==='tkd_order';}
-function get_posts($q){$number=$q['meta_query'][0]['value'];return $number==='TKD-SYNTHETIC'?array(12):array();}
-function get_post($id){return $id===12?(object)array('post_type'=>'tkd_order','post_status'=>'publish','post_modified_gmt'=>'2026-11-17 00:00:00'):null;}
+function get_posts($q){if(($q['meta_query'][0]['key']??'')==='_tkd_fo_delivery_seller_key'){$result=array();foreach($GLOBALS['document_ids']['tkd_delivery']??array() as $id){if(get_post_meta($id,'_tkd_fo_delivery_seller_key',true)===$q['meta_query'][0]['value']&&get_post_meta($id,'_tkd_fo_delivery_number',true)===$q['meta_query'][1]['value'])$result[]=$id;}return $result;}if(($q['post_type']??'')!=='tkd_order'){return $GLOBALS['document_ids'][$q['post_type']]??array();}$number=$q['meta_query'][0]['value'];return $number==='TKD-SYNTHETIC'?array(12):array();}
+function get_post($id){if(isset($GLOBALS['document_posts'][$id])){return $GLOBALS['document_posts'][$id];}return $id===12?(object)array('post_type'=>'tkd_order','post_status'=>'publish','post_date_gmt'=>'2026-11-17 00:00:00','post_modified_gmt'=>'2026-11-17 00:00:00'):null;}
 function get_post_meta($id,$key,$single=false){$values=$GLOBALS['meta'][$id][$key]??array();return $single?($values[0]??''):$values;}
 function get_option($key,$default=false){return $GLOBALS['options'][$key]??$default;}
 function add_option($key,$v,$deprecated='',$autoload=false){
@@ -27,9 +27,10 @@ function add_option($key,$v,$deprecated='',$autoload=false){
 function update_option($key,$v,$autoload=false){if($GLOBALS['update_fail'])return false;$GLOBALS['options'][$key]=$v;$GLOBALS['journal_writes']++;return true;}
 function maybe_serialize($v){return serialize($v);}
 class JournalDatabase {
- public $options='wp_synthetic_options';public $suppressed=false;public $pending=array();
+ public $prefix='wp_synthetic_';public $options='wp_synthetic_options';public $suppressed=false;public $pending=array();
  function suppress_errors($v){$old=$this->suppressed;$this->suppressed=$v;return $old;}
- function get_results($sql,$format){if(strpos($sql,'SHOW INDEX FROM `wp_synthetic_options`')!==0)throw new Exception('Unapproved metadata SQL');return $GLOBALS['missing_unique']?array():array(array('Non_unique'=>'0','Column_name'=>'option_name','Seq_in_index'=>'1'));}
+ function get_var($sql){return '1';}
+ function get_results($sql,$format){if(strpos($sql,'SHOW COLUMNS')===0)return array_map(function($c){return array('Field'=>$c,'Type'=>in_array($c,array('on_hand','reserved','reserved_supply','incoming'))?'decimal(18,6)':'varchar(128)');},array('id','sku','on_hand','reserved','reserved_supply','incoming','active','updated_at'));if(strpos($sql,'SELECT id,sku')===0)return array(array('id'=>'1','sku'=>$this->pending[0],'on_hand'=>$GLOBALS['stock_amount']??'100.000000','reserved'=>'0.000000','reserved_supply'=>'0.000000','incoming'=>'0.000000','active'=>'1','updated_at'=>'2026-11-17 00:00:00'));if(strpos($sql,'SHOW INDEX FROM `wp_synthetic_options`')!==0)throw new Exception('Unapproved metadata SQL');return $GLOBALS['missing_unique']?array():array(array('Non_unique'=>'0','Column_name'=>'option_name','Seq_in_index'=>'1'));}
  function prepare($sql,...$args){$this->pending=$args;return $sql;}
  function query($sql){
   if(strpos($sql,'INSERT IGNORE INTO `wp_synthetic_options` (`option_name`,`option_value`,`autoload`)')!==0)throw new Exception('Unapproved SQL');
@@ -46,8 +47,12 @@ function wp_verify_nonce($v,$a){return hash_equals(hash('sha256',$a),$v);}
 function wp_slash($v){return is_array($v)?array_map('wp_slash',$v):addslashes($v);}function wp_unslash($v){return is_array($v)?array_map('wp_unslash',$v):stripslashes($v);}
 function get_role($name){return $GLOBALS['roles'][$name]??null;}function add_role($name,$label,$caps){$GLOBALS['roles'][$name]=(object)array('capabilities'=>$caps);}
 function wp_die($m){throw new RuntimeException('REDACTED_ADMIN_REFUSAL');}function check_admin_referer($a){if(!$GLOBALS['admin_nonce'])wp_die('nonce');}
+function get_users($q){return $GLOBALS['assigned_operators']??array(10);}
 function get_user_by($f,$login){return $GLOBALS['technical_user'];}
 function wp_safe_redirect($url){throw new LogicException('SYNTHETIC_REDIRECT');}function admin_url($p){return $p;}
+function get_post_type($id){$p=get_post($id);return $p?$p->post_type:false;}
+function update_post_meta($id,$key,$v){$GLOBALS['business_writes']++;$GLOBALS['meta'][$id][$key]=array($v);return true;}
+function wp_date($format,$time=null){return date($format,$time??time());}
 class TechnicalUser { public $ID=10; public $roles=array('tkd_cloud_reader'); public $caps=array('tkd_cloud_reader'=>true); public $allcaps=array(); function get_role_caps(){$this->allcaps=array_merge(($GLOBALS['roles'][$this->roles[0]]->capabilities??array()),$this->caps);if(!empty($GLOBALS['extra_effective']))$this->allcaps['manage_options']=true;return $this->allcaps;} function set_role($role){$this->roles=array($role);$this->caps=array($role=>true);$this->get_role_caps();$GLOBALS['role_assignments']++;} }
 require __DIR__.'/fixtures/operation-native.php';
 require __DIR__.'/../../wordpress/tkd-cloud-reader/tkd-cloud-reader.php';
@@ -116,7 +121,7 @@ reset_state();$r=operation('payment.add_manual');$payment_mode='throw_after';$x=
 reset_state();$r=operation();$update_fail=true;$x=TKD_Cloud_Operations::execute($r);check($x->data['state']==='unknown','completion persistence failure unknown');$update_fail=false;TKD_Cloud_Operations::execute($r);check($native_status_calls===1,'lost completion claim still prevents replay');
 reset_state();$r=operation();$bad=$profile;$bad['classes']['TKD_FO_Orders']['private_methods']['reservation_manager_is_manual']=str_repeat('a',64);set_pins($bad);$report=TKD_Cloud_Native_Contracts::report('status.change');check(!$report['verified']&&$report['method']==='TKD_FO_Orders::reservation_manager_is_manual'&&preg_match('/^[a-f0-9]{64}$/',$report['actual_sha256']),'private candidate runtime drift diagnostics');check(code_is(TKD_Cloud_Operations::execute($r),'native_drift')&&$business_writes===0&&$journal_writes===0,'drift fail closed');set_pins($profile);
 reset_state();$r=operation();$caps['manage_options']=true;$cap_req=new OpRequest();$cap_req->method='GET';$c=TKD_Cloud_Operations::capabilities($cap_req);check(!$c->data['operations']['deferred_payment']['implemented']&&!$c->data['operations']['stock.change']['implemented'],'unsupported operations explicit');
-TKD_Cloud_Reader::activate();check($technical_user->roles===array('tkd_cloud_reader')&&$role_assignments===0,'activation never elevates account');check(array_keys($roles['tkd_cloud_operator']->capabilities)===array('read','tkd_cloud_read_orders','tkd_cloud_change_status','tkd_cloud_add_manual_payment','manage_tkd_felicity'),'operator exact caps no admin/edit/delete');
+TKD_Cloud_Reader::activate();check($technical_user->roles===array('tkd_cloud_reader')&&$role_assignments===0,'activation never elevates account');check(array_keys($roles['tkd_cloud_operator']->capabilities)===array('read','tkd_cloud_read_orders','tkd_cloud_change_status','tkd_cloud_add_manual_payment','manage_tkd_felicity','tkd_cloud_delivery_draft','tkd_cloud_invoice','tkd_cloud_extend_reservation','tkd_cloud_issue_delivery'),'operator exact caps no admin/edit/delete');
 $roles=array('tkd_cloud_reader'=>(object)array('capabilities'=>array('read'=>true,'tkd_cloud_read_orders'=>true)));$_SERVER['REQUEST_METHOD']='POST';$_POST=array('confirm'=>'assign-tkd-cloud');try{TKD_Cloud_Operator_Role::assign();}catch(LogicException $expected){}check($role_assignments===1&&isset($roles['tkd_cloud_operator'])&&$technical_user->roles===array('tkd_cloud_operator'),'ordinary update action creates role without reactivation');
 foreach(array('direct','admin','multi','effective') as $case){
  reset_state();$_SERVER['REQUEST_METHOD']='POST';$_POST=array('confirm'=>'assign-tkd-cloud');$caps['manage_options']=true;

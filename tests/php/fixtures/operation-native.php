@@ -8,6 +8,8 @@ class TKD_FO_Orders {
         $GLOBALS['depth'][$id]=($GLOBALS['depth'][$id]??0)+1; return true;
     }
     public static function release_reservation_mutex($id) { $GLOBALS['depth'][$id]--; }
+    public static function reservation_total_deadline($id,$hours){return 2000000000+$hours*3600;}
+    public static function claim_responsibility($id,$reason){return array();}
     public static function get_responsibility($id) { return array(); }
     private static function reservation_manager_is_manual($id,$manager) { return true; }
 }
@@ -50,7 +52,20 @@ class TKD_FO_Payments {
     public static function paid_total($id) { return 0; }
     private static function sync_order_after_payment($id) {}
 }
-class TKD_FO_Order_Lifecycle { public static function unpaid($id){return true;} public static function protected_stock($id){return false;} public static function confirmed($id){return false;} }
+class TKD_FO_Order_Lifecycle { public static function installment($id){return $GLOBALS['synthetic_installment']??false;} public static function unpaid($id){return true;} public static function protected_stock($id){return false;} public static function confirmed($id){return false;} }
 class TKD_FO_DB { const DB_VERSION='4'; }
-class TKD_FO_Invoices {}
+class TKD_FO_Invoices {
+    public static function ensure_manager_draft($id){return 20;}
+    public static function save_invoice($id,$post,$update){
+        $GLOBALS['invoice_native_calls']=($GLOBALS['invoice_native_calls']??0)+1;
+        if(empty($GLOBALS['options'])||!$update||!wp_verify_nonce(wp_unslash($_POST['tkd_fo_invoice_nonce']??''),'tkd_fo_save_invoice'))throw new Exception('missing pending or nonce');
+        if(isset($_POST['unrelated']))throw new Exception('unexpected POST');
+        if(!empty($GLOBALS['invoice_native_die'])){($GLOBALS['test_filters']['wp_die_handler'])()();}
+        update_post_meta($id,'_tkd_fo_invoice_status','issued');update_post_meta($id,'_tkd_fo_invoice_number',wp_unslash($_POST['tkd_fo_invoice_number']));
+    }
+}
+class TKD_Sales_Release {
+    public static function manager_snapshot($id){$GLOBALS['sales_snapshots']=($GLOBALS['sales_snapshots']??0)+1;return array('id'=>$id,'order'=>12,'invoice'=>20,'mode'=>'np','status'=>'draft','revision'=>str_repeat('a',64),'document_basis'=>str_repeat('b',64),'office_revision'=>str_repeat('c',64),'blockers'=>array(),'fiscal'=>array('state'=>'not_required'));}
+    public static function execute_inline($id,$revision,$command){$GLOBALS['sales_calls']=($GLOBALS['sales_calls']??0)+1;return array('posted'=>true,'prepared'=>true,'message'=>'DO_NOT_PRINT');}
+}
 class TKD_FO_Deliveries {}

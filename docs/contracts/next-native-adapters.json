@@ -1,0 +1,189 @@
+{
+  "evidence": "saved live manifest from 2026-11-17; not a fresh server observation",
+  "manifest_sha256": "0057f8c942570599e468103f0ab0ee57706d2cd015fd51e8f1642c840d5727d8",
+  "no_native_invocation": true,
+  "operations": {
+    "invoice.draft": {
+      "enabled": false,
+      "source_review": "required",
+      "contracts": [
+        {
+          "class": "TKD_FO_Invoices",
+          "file_sha256": "b4cd1b9e573f2c18b7a637aac46f8ed92fe36e5a0c8560aae2b0b197fb424db7",
+          "name": "ensure_manager_draft",
+          "required_args": 1,
+          "total_args": 2,
+          "source_sha256": "e046838b80d204fe8583e9698c47a26ac91e57dc0ca7919e00a9e14d0de93db7"
+        },
+        {
+          "class": "TKD_FO_Invoices",
+          "file_sha256": "b4cd1b9e573f2c18b7a637aac46f8ed92fe36e5a0c8560aae2b0b197fb424db7",
+          "name": "manager_invoice_context",
+          "required_args": 1,
+          "total_args": 1,
+          "source_sha256": "0998c578f606937a52cd12479e020d28c497c6fb35a674d2ec32581d5edebffa"
+        },
+        {
+          "class": "TKD_FO_Invoices",
+          "file_sha256": "b4cd1b9e573f2c18b7a637aac46f8ed92fe36e5a0c8560aae2b0b197fb424db7",
+          "name": "save_invoice",
+          "required_args": 3,
+          "total_args": 3,
+          "source_sha256": "07cbd3aaf3f009215446d90ac2ea12cbba79eeb93217c206e64f84c29db043fa"
+        }
+      ]
+    },
+    "invoice.create": {
+      "enabled": false,
+      "source_review": "required",
+      "contracts": [
+        {
+          "class": "TKD_FO_Invoices",
+          "file_sha256": "b4cd1b9e573f2c18b7a637aac46f8ed92fe36e5a0c8560aae2b0b197fb424db7",
+          "name": "create_issued_for_order",
+          "required_args": 1,
+          "total_args": 1,
+          "source_sha256": "e7ecd565dd90a2159540d2ae4484321ca6214be71bfa686fd144ea870a8dd446"
+        },
+        {
+          "class": "TKD_FO_Invoices",
+          "file_sha256": "b4cd1b9e573f2c18b7a637aac46f8ed92fe36e5a0c8560aae2b0b197fb424db7",
+          "name": "create_from_order",
+          "required_args": 0,
+          "total_args": 0,
+          "source_sha256": "47166f58e301d3a6624c4def055a7ed2c72973eb5a4c2fda6f1c78243fc2884b"
+        },
+        {
+          "class": "TKD_FO_Invoices",
+          "file_sha256": "b4cd1b9e573f2c18b7a637aac46f8ed92fe36e5a0c8560aae2b0b197fb424db7",
+          "name": "manager_invoice_context",
+          "required_args": 1,
+          "total_args": 1,
+          "source_sha256": "0998c578f606937a52cd12479e020d28c497c6fb35a674d2ec32581d5edebffa"
+        },
+        {
+          "class": "TKD_FO_Invoices",
+          "file_sha256": "b4cd1b9e573f2c18b7a637aac46f8ed92fe36e5a0c8560aae2b0b197fb424db7",
+          "name": "save_invoice",
+          "required_args": 3,
+          "total_args": 3,
+          "source_sha256": "07cbd3aaf3f009215446d90ac2ea12cbba79eeb93217c206e64f84c29db043fa"
+        }
+      ]
+    },
+    "reservation.extend": {
+      "enabled": false,
+      "source_review": "required",
+      "contracts": [
+        {
+          "class": "TKD_FO_Orders",
+          "file_sha256": "a847a5d1720451bf82026f04460e863982b32b3ba87dfe4c35818a3fa6bac4d1",
+          "name": "handle_reservation_action",
+          "required_args": 0,
+          "total_args": 0,
+          "source_sha256": "e824f640f6d8d76dc93313b00335be1c4c31972d644f180a8a143c3a8289ccd4"
+        },
+        {
+          "class": "TKD_FO_Orders",
+          "file_sha256": "a847a5d1720451bf82026f04460e863982b32b3ba87dfe4c35818a3fa6bac4d1",
+          "name": "reservation_total_deadline",
+          "required_args": 2,
+          "total_args": 2,
+          "source_sha256": "aa15b53e8f9272c78cace6eb6a049e8de944cd483014e5e62ae173b33b919bd3"
+        },
+        {
+          "class": "TKD_FO_Orders",
+          "file_sha256": "a847a5d1720451bf82026f04460e863982b32b3ba87dfe4c35818a3fa6bac4d1",
+          "name": "reservation_extension_deadline",
+          "required_args": 2,
+          "total_args": 3,
+          "source_sha256": "9a0c15c83f60a6a3006e49fc824f529362e047b5b26e8313b6ee9ccd07f657b3"
+        },
+        {
+          "class": "TKD_FO_Orders",
+          "file_sha256": "a847a5d1720451bf82026f04460e863982b32b3ba87dfe4c35818a3fa6bac4d1",
+          "name": "acquire_reservation_mutex",
+          "required_args": 1,
+          "total_args": 1,
+          "source_sha256": "6b6b447cf0ea5b32b9daf51f1dc4b276b3a4ab310660eccf3b34bac37d7c6491"
+        },
+        {
+          "class": "TKD_FO_Orders",
+          "file_sha256": "a847a5d1720451bf82026f04460e863982b32b3ba87dfe4c35818a3fa6bac4d1",
+          "name": "release_reservation_mutex",
+          "required_args": 1,
+          "total_args": 1,
+          "source_sha256": "7a8e5e95e05dbda737161070d7967564b378b4ae36faee93e2ec815ca8d014a7"
+        }
+      ]
+    },
+    "delivery.prepare": {
+      "enabled": false,
+      "source_review": "required",
+      "contracts": [
+        {
+          "class": "TKD_FO_Deliveries",
+          "file_sha256": "545dd9fb07186c16dc768dbb2b4bd018fe5959bc986023ae6dfe416d96256519",
+          "name": "create_from_invoice",
+          "required_args": 0,
+          "total_args": 0,
+          "source_sha256": "f3c3ac1d9e8d504a5bce8c1de5ae8c10d89719c66e0172360adfd727b3e72892"
+        },
+        {
+          "class": "TKD_FO_Deliveries",
+          "file_sha256": "545dd9fb07186c16dc768dbb2b4bd018fe5959bc986023ae6dfe416d96256519",
+          "name": "save_delivery",
+          "required_args": 3,
+          "total_args": 3,
+          "source_sha256": "3a617c387bf9ab4aea5b0e3548bf9ec87600e0ecc8158fa2a24a59d87a64d78b"
+        },
+        {
+          "class": "TKD_FO_Deliveries",
+          "file_sha256": "545dd9fb07186c16dc768dbb2b4bd018fe5959bc986023ae6dfe416d96256519",
+          "name": "issued_quantities_for_order",
+          "required_args": 1,
+          "total_args": 1,
+          "source_sha256": "06beab327dca61e046e3478f9d8d295aea28d3394ad3241c4ebfc2dd39e100d3"
+        }
+      ]
+    },
+    "shipment.issue": {
+      "enabled": false,
+      "source_review": "required",
+      "contracts": [
+        {
+          "class": "TKD_FO_Deliveries",
+          "file_sha256": "545dd9fb07186c16dc768dbb2b4bd018fe5959bc986023ae6dfe416d96256519",
+          "name": "save_delivery",
+          "required_args": 3,
+          "total_args": 3,
+          "source_sha256": "3a617c387bf9ab4aea5b0e3548bf9ec87600e0ecc8158fa2a24a59d87a64d78b"
+        },
+        {
+          "class": "TKD_FO_Deliveries",
+          "file_sha256": "545dd9fb07186c16dc768dbb2b4bd018fe5959bc986023ae6dfe416d96256519",
+          "name": "validate_waybill_before_issue",
+          "required_args": 1,
+          "total_args": 1,
+          "source_sha256": "4fd2be58a84e79bc58d773d70713277739608fd414635d0a8c5de369afe42cd7"
+        },
+        {
+          "class": "TKD_FO_Deliveries",
+          "file_sha256": "545dd9fb07186c16dc768dbb2b4bd018fe5959bc986023ae6dfe416d96256519",
+          "name": "post_saved_for_handover",
+          "required_args": 2,
+          "total_args": 2,
+          "source_sha256": "9c30efbd2a3771f9c7e45c6e55ff3d4e7bd4c0e97e557fbb622885119e5e50ca"
+        },
+        {
+          "class": "TKD_FO_Deliveries",
+          "file_sha256": "545dd9fb07186c16dc768dbb2b4bd018fe5959bc986023ae6dfe416d96256519",
+          "name": "issued_quantities_for_order",
+          "required_args": 1,
+          "total_args": 1,
+          "source_sha256": "06beab327dca61e046e3478f9d8d295aea28d3394ad3241c4ebfc2dd39e100d3"
+        }
+      ]
+    }
+  }
+}
