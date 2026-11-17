@@ -1,0 +1,156 @@
+{
+  "source": "Reviewed local deployment candidate dated2026-11-13; exact context hash matches live reflection",
+  "file_sha256": "a342ec719e4ee71b95d32bac3d5e51f2f61f8bef5a5516d12c6a0f781a07e69c",
+  "live_context_hash_matched": true,
+  "other_new_hashes_live_verified": false,
+  "review": "Native fiscal context adds existing sellers. Bank terms retain native attestation/recipient/ledger checks. Public status delegates through existing MultiSeller delivery scope to status_unscoped; existing provider proofs, receipt blockers and narrow legacy exceptions remain in force. No cloud-native financial rule or refund action added. Source remains local; repository contains hashes and review metadata only.",
+  "methods": [
+    {
+      "method": "TKD_Sales_Fiscal_Gate::active_post",
+      "visibility": "private",
+      "source_sha256": "e055e3031bb31be0d96850bad94336305d3368e2523bb4d8a36190d6cafcfa37",
+      "prior_sha256": "e055e3031bb31be0d96850bad94336305d3368e2523bb4d8a36190d6cafcfa37",
+      "changed": false
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::bank_method",
+      "visibility": "private",
+      "source_sha256": "690d6c883b99f3f29f7de455e5dd28a54d984a982da3a4ad469aa5d0e67270fe",
+      "prior_sha256": "690d6c883b99f3f29f7de455e5dd28a54d984a982da3a4ad469aa5d0e67270fe",
+      "changed": false
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::bank_rejected",
+      "visibility": "private",
+      "source_sha256": "842bb12b75a9b3aee94cffeb174743947c3e8e80e204ea29559bfa30f5b1599c",
+      "prior_sha256": "842bb12b75a9b3aee94cffeb174743947c3e8e80e204ea29559bfa30f5b1599c",
+      "changed": false
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::context",
+      "visibility": "private",
+      "source_sha256": "a8c31afe737b99bf3b7fce282d005b93bb3c6dcc087d0183ff10a14a00e2eb9c",
+      "prior_sha256": "d6d04f3ca9692e375e05c55dc907cbf8df546953426a19956bba8a2be97044b6",
+      "changed": true
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::db_ok",
+      "visibility": "private",
+      "source_sha256": "2043d0dbd59ff7341332a7bddce60dbee4fa3f6d4d074785bbe0ad94771b1c38",
+      "prior_sha256": "2043d0dbd59ff7341332a7bddce60dbee4fa3f6d4d074785bbe0ad94771b1c38",
+      "changed": false
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::direct_bank",
+      "visibility": "private",
+      "source_sha256": "b30d62f39af6bd71af272b4930cd5bb92b70b2aaa0b933f272de681511c3f144",
+      "prior_sha256": "3e29c98973cf4d37ff39a7560a37d970771d609f871917ca3688be5da8d3811b",
+      "changed": true
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::exchange_9447_credit",
+      "visibility": "private",
+      "source_sha256": "9196dc6fe5caa6673933170539b28ec1b54fda401c45fc840c4619e686368457",
+      "prior_sha256": null,
+      "changed": true
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::fail",
+      "visibility": "private",
+      "source_sha256": "3ee5851c98d7b0ef08b936cff3fc0db27a1d1a6275963d8121cd224ac08df805",
+      "prior_sha256": "3ee5851c98d7b0ef08b936cff3fc0db27a1d1a6275963d8121cd224ac08df805",
+      "changed": false
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::fresh",
+      "visibility": "private",
+      "source_sha256": "6033240ba2714aea1fd8dc3925a790b66a2d9137530790a94fa18a07a906dd0d",
+      "prior_sha256": "6033240ba2714aea1fd8dc3925a790b66a2d9137530790a94fa18a07a906dd0d",
+      "changed": false
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::id",
+      "visibility": "private",
+      "source_sha256": "0b3b2b6f338dbe7b3400484c4a69342e3072b785c7185a60a1ff7331440b68fe",
+      "prior_sha256": "0b3b2b6f338dbe7b3400484c4a69342e3072b785c7185a60a1ff7331440b68fe",
+      "changed": false
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::legacy_inna_checkout",
+      "visibility": "private",
+      "source_sha256": "36663c5faddb583e3b48f60a76fa2beeb0dfe96454c16b20f3cf0e97306fdf82",
+      "prior_sha256": "36663c5faddb583e3b48f60a76fa2beeb0dfe96454c16b20f3cf0e97306fdf82",
+      "changed": false
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::linked",
+      "visibility": "private",
+      "source_sha256": "c070094131d3b9ed3383d1e370ae1aa32b668804b507d6ff7d8d0a8dc31195e1",
+      "prior_sha256": "c070094131d3b9ed3383d1e370ae1aa32b668804b507d6ff7d8d0a8dc31195e1",
+      "changed": false
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::manager_iban_terms",
+      "visibility": "public",
+      "source_sha256": "000c35abeb9d9f16e28104bd7673fd0615055aa56f734a6d703bab71880fa4b6",
+      "prior_sha256": "acc2356e5aa39ee1acd6e826c758056f50d0f820d0309e9acf98224258eb07f4",
+      "changed": true
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::meta",
+      "visibility": "private",
+      "source_sha256": "5d81046ff531c647515d3a12293cb30b7e18bf00e2a86c6737c648e19a37ce4b",
+      "prior_sha256": "5d81046ff531c647515d3a12293cb30b7e18bf00e2a86c6737c648e19a37ce4b",
+      "changed": false
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::money",
+      "visibility": "private",
+      "source_sha256": "b6669e14f4d98db9a34b07087a6390d1c1e038f9906e4c961329005b4772810c",
+      "prior_sha256": "b6669e14f4d98db9a34b07087a6390d1c1e038f9906e4c961329005b4772810c",
+      "changed": false
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::quantity",
+      "visibility": "private",
+      "source_sha256": "c372f7836a5d7c2caf512243601515c5191a83b1da9828eb23583a8f94fb1ff3",
+      "prior_sha256": "c372f7836a5d7c2caf512243601515c5191a83b1da9828eb23583a8f94fb1ff3",
+      "changed": false
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::result",
+      "visibility": "private",
+      "source_sha256": "178bb4ac8fed55ddec461510acba660741cf8d06bab238cbc4ff8520ecb87a12",
+      "prior_sha256": "178bb4ac8fed55ddec461510acba660741cf8d06bab238cbc4ff8520ecb87a12",
+      "changed": false
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::status",
+      "visibility": "public",
+      "source_sha256": "67931cca28347e4a83dcd5de46bb9872122cd51575a6a16d98829bbd6c09f446",
+      "prior_sha256": "fd24bb6a2321ba9fb7093e906af19a6c8ebe0ddd6e0b02a6c7ab5b2df9440a9d",
+      "changed": true
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::status_unscoped",
+      "visibility": "private",
+      "source_sha256": "4936159e490f7962cb71ec6f24377cd2124da468dc42155d9a6df268956ac10e",
+      "prior_sha256": null,
+      "changed": true
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::text",
+      "visibility": "private",
+      "source_sha256": "1e8325313aed9923918d10b3e1840e1998e44ce8073c9d3f6ff93ebcf3510171",
+      "prior_sha256": "1e8325313aed9923918d10b3e1840e1998e44ce8073c9d3f6ff93ebcf3510171",
+      "changed": false
+    },
+    {
+      "method": "TKD_Sales_Fiscal_Gate::verified_ti_iban",
+      "visibility": "private",
+      "source_sha256": "e5e5d6f4c97250b5edde06992d487dc6fdd9fa436763f2c7cb42e924d9ba2c2d",
+      "prior_sha256": null,
+      "changed": true
+    }
+  ]
+}
