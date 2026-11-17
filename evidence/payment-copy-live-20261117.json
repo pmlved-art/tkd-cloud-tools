@@ -1,0 +1,11 @@
+{
+  "purpose": "Exact source matching previously read live integration manifest; no production mutation",
+  "methods": [
+    {
+      "method": "TKD_FO_Invoices::payment_copy_text",
+      "visibility": "public",
+      "source_sha256": "1589ed35ba8bfb7d331e249d65913d96a4d54be1077d511679cb5ffcfc6353ab",
+      "source": "    public static function payment_copy_text( $id ) {\n        $data = self::copy_payment_data( $id );\n        if ( ! $data ) { return ''; }\n        $order_id = absint( get_post_meta( $id, '_tkd_fo_order_id', true ) );\n        $order_number = '';\n        if ( $order_id && 'tkd_order' === get_post_type( $order_id ) ) {\n            $order_number = sanitize_text_field( get_post_meta( $order_id, '_tkd_order_number', true ) );\n            if ( '' === $order_number ) { $order_number = str_pad( (string) $order_id, 5, '0', STR_PAD_LEFT ); }\n        }\n        $intro = \"Добрий день!\\n\\nНадсилаємо рахунок для оплати\"\n            . ( '' !== $order_number ? ' замовлення № ' . $order_number : '' ) . \".\\n\\n\";\n        $total_cents = (int) round( (float) get_post_meta( $id, '_tkd_fo_invoice_total', true ) * 100 );\n        $reserve_cents = intdiv( $total_cents + 2, 5 );\n        return $intro . self::payment_text_from_data( $data ) . \"\\n\\nДля резерву під поставку клієнт сплачує 20% від суми рахунку — \"\n            . number_format( $reserve_cents / 100, 2, ',', ' ' ) . ' грн.';\n    }\n"
+    }
+  ]
+}
