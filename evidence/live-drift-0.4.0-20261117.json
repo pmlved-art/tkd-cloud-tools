@@ -1,0 +1,52 @@
+{
+  "methods": [
+    {
+      "method": "TKD_FO_Multi_Seller::sellers",
+      "visibility": "public",
+      "source_sha256": "fd66fdbed42994d06e4d15da17f9ff08b6ce5174bba5c7e1855b9665a0eec65b",
+      "source": "    public static function sellers() {\n        return array_intersect_key( TKD_FO_DB::seller_profiles(), array_flip( array( 'no_vat', 'fop_pm', 'fop_rv', 'fop_tp', 'fop_md', 'fop_eo' ) ) );\n    }\n",
+      "local_path": "work/audits/close-orders-20261112/multi.after.php",
+      "file_sha256": "4e3d521643526a2cd4594c5220427cf442b31158715c5115ff2b7177923c41f2"
+    },
+    {
+      "method": "TKD_FO_Orders::claim_responsibility_locked",
+      "visibility": "private",
+      "source_sha256": "6ef73dfcdc522f0e78898c38b625ddcb106fc11fd0af20986a85be773db7faac",
+      "source": "\tprivate static function claim_responsibility_locked( $order_id, $reason ) {\n\t\tglobal $wpdb;\n\t\t$order_id = absint( $order_id );\n\t\tif ( ! self::responsibility_context_is_manual( $order_id ) ) {\n\t\t\treturn array();\n\t\t}\n\t\tif (class_exists('TKD_Returning_Customer_20261114')) { TKD_Returning_Customer_20261114::accept($order_id); }\n\t\t$option = 'tkd_fo_order_responsibility_' . $order_id;\n\t\t$stored = get_option( $option, false );\n\t\t// Imported inquiries deliberately start with an empty ownership sentinel.\n\t\t// It means unassigned, not an existing owner. Preserve every non-empty record.\n\t\tif ( false !== $stored && array() !== $stored ) {\n\t\t\treturn self::get_responsibility( $order_id );\n\t\t}\n\t\t$record = self::get_responsibility( $order_id );\n\t\tif ( ! $record ) {\n\t\t\t$user = get_userdata( get_current_user_id() );\n\t\t\tif ( ! $user ) {\n\t\t\t\treturn array();\n\t\t\t}\n\t\t\t$record = array(\n\t\t\t\t'user_id'   => (int) $user->ID,\n\t\t\t\t'user_name' => sanitize_text_field( $user->display_name ? $user->display_name : $user->user_login ),\n\t\t\t\t'time'      => time(),\n\t\t\t\t'reason'    => sanitize_text_field( $reason ),\n\t\t\t\t'source'    => 'manual_action',\n\t\t\t);\n\t\t}\n\t\t// Both paths are atomic: concurrent managers cannot replace the first owner.\n\t\t$inserted = array() === $stored\n\t\t\t? $wpdb->query( $wpdb->prepare(\n\t\t\t\t\"UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s AND option_value = %s\",\n\t\t\t\tmaybe_serialize( $record ), $option, maybe_serialize( array() )\n\t\t\t) )\n\t\t\t: $wpdb->query( $wpdb->prepare(\n\t\t\t\t\"INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'no')\",\n\t\t\t\t$option, maybe_serialize( $record )\n\t\t\t) );\n\t\tif ( false === $inserted ) {\n\t\t\treturn array();\n\t\t}\n\t\twp_cache_delete( $option, 'options' );\n\t\twp_cache_delete( 'notoptions', 'options' );\n\t\twp_cache_delete( 'alloptions', 'options' );\n\t\treturn self::get_responsibility( $order_id );\n\t}\n",
+      "provenance": "Exact reconstruction from orders.php plus order-search-returning-20261114/build.py one-line accept hook; SHA matches live."
+    },
+    {
+      "method": "TKD_Returning_Customer_20261114::pending",
+      "visibility": "public",
+      "source": "    public static function pending($id) {\n        $r = TKD_FO_Orders::get_responsibility($id);\n        return ($r['source'] ?? '') === 'returning_customer_phone' && empty($r['accepted_at']);\n    }\n",
+      "source_sha256": "ac3363516fedbd6e31341750477fb9a3fc28dd39089ef5ff4b8b09dae63da5c7",
+      "provenance": "order-search-returning-20261114/returning.php; candidate dependency, runtime pin still required"
+    },
+    {
+      "method": "TKD_Returning_Customer_20261114::may_accept",
+      "visibility": "public",
+      "source": "    public static function may_accept($id) {\n        $r = TKD_FO_Orders::get_responsibility($id);\n        return self::pending($id) && current_user_can('manage_tkd_felicity') && current_user_can('edit_post', $id)\n            && ((int)($r['user_id'] ?? 0) === get_current_user_id() || current_user_can('manage_options'));\n    }\n",
+      "source_sha256": "c36aa67f7a893c13c20e903cbcda6cf8b0c77d1b34c130afdf54427d8ef28230",
+      "provenance": "order-search-returning-20261114/returning.php; candidate dependency, runtime pin still required"
+    },
+    {
+      "method": "TKD_Returning_Customer_20261114::clear_option_cache",
+      "visibility": "public",
+      "source": "    public static function clear_option_cache($key) {\n        foreach (array($key, 'notoptions', 'alloptions') as $name) { wp_cache_delete($name, 'options'); }\n    }\n",
+      "source_sha256": "01ee52e7244d6f915c6383376fee1f57058b29e35034fea79067e598a45cd8e7",
+      "provenance": "order-search-returning-20261114/returning.php; candidate dependency, runtime pin still required"
+    },
+    {
+      "method": "TKD_Returning_Customer_20261114::accept",
+      "visibility": "public",
+      "source": "    public static function accept($id) {\n        global $wpdb;\n        if (!self::may_accept($id)) { return false; }\n        $key = 'tkd_fo_order_responsibility_' . absint($id);\n        $old = get_option($key, false);\n        if (!is_array($old) || ($old['source'] ?? '') !== 'returning_customer_phone' || !empty($old['accepted_at'])) { return false; }\n        $next = $old; $next['accepted_at'] = time(); $next['accepted_by'] = get_current_user_id();\n        $ok = $wpdb->query($wpdb->prepare(\"UPDATE {$wpdb->options} SET option_value=%s WHERE option_name=%s AND option_value=%s\", maybe_serialize($next), $key, maybe_serialize($old)));\n        self::clear_option_cache($key);\n        return $ok === 1;\n    }\n",
+      "source_sha256": "fc778a16b5bacb0e7f4c5c7cdbb670b4a9ac8c679082fecf1d0ab25e2d977601",
+      "provenance": "order-search-returning-20261114/returning.php; candidate dependency, runtime pin still required"
+    }
+  ],
+  "review": {
+    "sellers": "Live list excludes vat; gateway must retain exact native list, no seller data changes.",
+    "claim": "Exact prior method plus returning-customer accept hook; only assigned manager or manage_options may accept; existing owner preserved; CAS option update.",
+    "new_dependencies": "Four exact candidates from previously deployed returning-customer plugin; include in invoice/delivery and reservation pin groups, runtime checks required."
+  }
+}
