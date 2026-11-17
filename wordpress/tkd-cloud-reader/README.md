@@ -1,3 +1,15 @@
+# 0.3.1 — уточнення проєкції передоплати
+
+Лише точний порожній рядок у `_tkd_prepayment_received` є допустимим
+збереженим legacy aggregate: `present:true,value:""`. Він не стає нулем.
+Відсутнє поле, null, порожній рядок і числовий нуль лишаються різними.
+Пробіли, кома, групування й exponent не приймаються. Інші грошові поля,
+вкладені платежі та всі операційні money checks не змінені.
+Діагностика відмов містить лише field/reason/type/present.
+Native aggregate_value/recalculate_aggregate підтверджені локальним аудитом;
+формат конкретного live-поля ще не встановлено. Після review й установки
+потрібен GET details; жодні бізнес-записи для перевірки не потрібні.
+
 # 0.3.0 pending review (not deployed, no installer ZIP)
 
 The source now includes a restricted native operations gateway and a separately

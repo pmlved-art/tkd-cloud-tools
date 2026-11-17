@@ -54,6 +54,21 @@ class ExtensionClientTests(unittest.TestCase):
             self.assertNotIn(value,output)
         return result
 
+    def test_optional_empty_prepayment_only(self):
+        for version in ('0.3.0', '0.3.1'):
+            for present, value in ((False, None), (True, None), (True, ''), (True, '0'), (True, '0.00')):
+                d = copy.deepcopy(self.details)
+                d['bridge_version'] = version
+                d['metadata']['_tkd_prepayment_received'] = {'present': present, 'value': value}
+                result = self.request(d, 'details', 'TKD-SYNTHETIC', include_data=True)
+                self.assertEqual(result['result'], 'details_verified')
+                self.assertEqual(result['data']['metadata']['_tkd_prepayment_received'], {'present': present, 'value': value})
+        for field in ('_tkd_prepayment_received', '_tkd_client_total', '_tkd_confirmed_amount'):
+            for value in (' ', '1,25', '1e2', '1 000.00', False, [], '1.234') + (() if field == '_tkd_prepayment_received' else ('',)):
+                d = copy.deepcopy(self.details)
+                d['metadata'][field] = {'present': True, 'value': value}
+                self.assertEqual(self.request(d, 'details', 'TKD-SYNTHETIC')['result'], 'schema_mismatch')
+
     def test_details_projection_redaction_and_etag(self):
         self.assertEqual(self.request(self.details,'details','TKD-SYNTHETIC')['result'],'details_verified')
         for key,val in [('quantity','1.0001'),('unit_price','1.001'),('opaque',{'secret':'x'})]:

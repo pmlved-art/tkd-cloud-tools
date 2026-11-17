@@ -12,8 +12,20 @@ function expect_diagnostic($field,$reason,$type) {
  check($d===array('field'=>$field,'reason'=>$reason,'type'=>$type,'present'=>true),'exact enum-only schema diagnostic');
  check(array_keys($error->data)===array('status','schema_diagnostic'),'no extra error data');
 }
-foreach(array('_tkd_client_total','_tkd_confirmed_amount','_tkd_prepayment_received') as $key) {
- $extra_meta=array($key=>array(''));expect_diagnostic($key,'invalid_decimal','string');
+foreach(array('_tkd_client_total','_tkd_confirmed_amount') as $key) {
+ $extra_meta=array($key=>array(''));expect_diagnostic($key,'decimal_empty','string');
+}
+foreach(array(array(false,null),array(true,null),array(true,''),array(true,'0'),array(true,'0.00')) as $fixture) {
+ $extra_meta=$fixture[0]?array('_tkd_prepayment_received'=>array($fixture[1])):array();
+ $response=TKD_Cloud_Read_Extensions::details($r);
+ check($response instanceof WP_REST_Response,'optional aggregate accepted');
+ check($response->data['metadata']['_tkd_prepayment_received']===array('present'=>$fixture[0],'value'=>$fixture[1]),'missing null empty zero preserved exactly');
+}
+foreach(array(array(' ', 'decimal_whitespace'),array('1,25','decimal_localized'),array('1 000.25','decimal_grouped'),array('1e2','decimal_exponent'),array('not-money','invalid_decimal'),array('1.234','invalid_decimal')) as $fixture) {
+ $extra_meta=array('_tkd_prepayment_received'=>array($fixture[0]));
+ expect_diagnostic('_tkd_prepayment_received',$fixture[1],'string');
+ $error=TKD_Cloud_Read_Extensions::details($r);
+ check(array_keys($error->data['schema_diagnostic'])===array('field','reason','type','present'),'classification exposes enums only');
 }
 foreach(array('_tkd_fo_order_items','_tkd_fo_payments') as $key) {
  $extra_meta=array($key=>array(''));expect_diagnostic($key,'expected_list','string');

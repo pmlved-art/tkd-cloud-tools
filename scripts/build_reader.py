@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Build the reviewed 0.3.0 candidate from explicit source files; no secrets."""
+"""Build the reviewed 0.3.1 candidate from explicit source files; no secrets."""
 import hashlib
 from pathlib import Path
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.3.0'
+VERSION = '0.3.1'
 
 
 def main():
-    if 'Version: 0.3.0' not in (ROOT / 'wordpress/tkd-cloud-reader/tkd-cloud-reader.php').read_text():
+    if 'Version: 0.3.1' not in (ROOT / 'wordpress/tkd-cloud-reader/tkd-cloud-reader.php').read_text():
         raise SystemExit('Installer ZIP blocked: pending gateway release requires independent review and a reviewed packaging update.')
     files = {'tkd-cloud-reader/' + n: ROOT / 'wordpress/tkd-cloud-reader' / n
              for n in ('tkd-cloud-reader.php', 'read-extensions.php', 'operations.php', 'operator-role.php', 'native-contracts.php', 'uninstall.php', 'README.md')}

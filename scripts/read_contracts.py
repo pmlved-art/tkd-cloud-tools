@@ -71,7 +71,7 @@ def validate_details(d, number, headers):
             if not rows(v, k == '_tkd_fo_payments'):
                 return False
         elif k in {'_tkd_client_total', '_tkd_confirmed_amount', '_tkd_prepayment_received'}:
-            if not decimal(v):
+            if not (k == '_tkd_prepayment_received' and v == '' and isinstance(v, str)) and not decimal(v):
                 return False
         elif not text(v):
             return False

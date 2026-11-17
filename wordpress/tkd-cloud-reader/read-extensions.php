@@ -43,12 +43,23 @@ final class TKD_Cloud_Read_Extensions {
         return $value;
     }
 
+    // Classification only: never normalize or accept a rejected monetary value.
+    private static function decimal_reason($value) {
+        if (!is_string($value)) { return 'invalid_decimal'; }
+        if ($value === '') { return 'decimal_empty'; }
+        if (preg_match('/\A\s+\z/uD', $value)) { return 'decimal_whitespace'; }
+        if (preg_match('/\A[+-]?[0-9]+(?:\.[0-9]+)?[eE][+-]?[0-9]+\z/D', $value)) { return 'decimal_exponent'; }
+        if (preg_match('/\A-?[0-9]{1,3}(?:[ ,\x{00a0}\x{202f}][0-9]{3})+(?:[.,][0-9]+)?\z/uD', $value)) { return 'decimal_grouped'; }
+        if (preg_match('/\A-?[0-9]+,[0-9]+\z/D', $value)) { return 'decimal_localized'; }
+        return 'invalid_decimal';
+    }
+
     // Only fixed field paths/reasons and native type enums; no values or row indices.
     private static function details_error($field, $reason, $value, $present = true, $code = 'tkd_schema_unverified', $status = 503) {
         $allowed = array_merge(self::META, array('snapshot', 'response'));
         foreach (self::ITEM_FIELDS as $key) { $allowed[] = '_tkd_fo_order_items.' . $key; }
         foreach (self::PAYMENT_FIELDS as $key) { $allowed[] = '_tkd_fo_payments.' . $key; }
-        $reasons = array('expected_list', 'row_bound', 'expected_row', 'empty_projection', 'invalid_decimal', 'invalid_identifier', 'invalid_text', 'duplicate_id', 'duplicate_meta', 'input_bound_or_unsupported_type', 'snapshot_changed', 'response_bound');
+        $reasons = array('expected_list', 'row_bound', 'expected_row', 'empty_projection', 'invalid_decimal', 'decimal_empty', 'decimal_whitespace', 'decimal_exponent', 'decimal_grouped', 'decimal_localized', 'invalid_identifier', 'invalid_text', 'duplicate_id', 'duplicate_meta', 'input_bound_or_unsupported_type', 'snapshot_changed', 'response_bound');
         $type = gettype($value);
         if (!in_array($field, $allowed, true) || !in_array($reason, $reasons, true)) { return self::error(); }
         if (!in_array($type, array('NULL', 'string', 'integer', 'double', 'boolean', 'array', 'object', 'resource', 'resource (closed)'), true)) { $type = 'unknown'; }
@@ -118,8 +129,9 @@ final class TKD_Cloud_Read_Extensions {
                     $value = self::rows($value, $key === '_tkd_fo_payments');
                     if ($value instanceof WP_Error) { return $value; }
                 } elseif (in_array($key, array('_tkd_client_total', '_tkd_confirmed_amount', '_tkd_prepayment_received'), true)) {
-                    $value = self::decimal($value);
-                    if ($value === null) { return self::details_error($key, 'invalid_decimal', $values[0]); }
+                    // Native aggregate_value legitimately stores exact empty legacy aggregate.
+                    $value = ($key === '_tkd_prepayment_received' && $value === '') ? '' : self::decimal($value);
+                    if ($value === null) { return self::details_error($key, self::decimal_reason($values[0]), $values[0]); }
                 } elseif ($key === '_tkd_fo_invoice_id') {
                     if (is_int($value) && $value >= 0) { $value = (string) $value; }
                     if (!is_string($value) || !preg_match('/\A[0-9]{0,18}\z/D', $value)) { return self::details_error($key, 'invalid_identifier', $values[0]); }
