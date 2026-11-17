@@ -1,3 +1,5 @@
+> Historical inventory; superseded by 0.4.0-candidate.md and current source.
+
 # Next native adapters — source review gate
 
 No new routes, caps, native invocations, role changes or installer in this step.

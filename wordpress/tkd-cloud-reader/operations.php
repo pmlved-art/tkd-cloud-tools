@@ -8,6 +8,7 @@ final class TKD_Cloud_Operations {
     const STATE_KEYS = array('_edit_lock', '_edit_last', '_tkd_order_number', '_tkd_status', '_tkd_fo_cancel_reason', '_tkd_fo_stock_state', '_tkd_fo_reserved_items', '_tkd_fo_payments', '_tkd_prepayment_received', '_tkd_confirmed_amount', '_tkd_client_total', '_tkd_fo_invoice_id', '_tkd_fo_order_items', '_tkd_paid_at', '_tkd_payment_token', '_tkd_payment_expires', '_tkd_liqpay_order_id', '_tkd_fo_checkout_seller_key', '_tkd_fo_manager_payment_override', '_tkd_np_delivery_method', '_tkd_np_payment_type', '_tkd_fo_invoice_split_done', '_tkd_fo_reservation_manager_id', '_tkd_fo_reservation_manager_source', '_tkd_fo_reservation_log', '_tkd_svitloe_wfp_binding_v1', '_tkd_mobile_status_history');
 
     public static function routes() {
+        TKD_Cloud_Document_PDF::routes();
         register_rest_route('tkd-cloud/v1', '/orders/(?P<number>[A-Za-z0-9-]{1,64})/document-snapshot', array('methods'=>'GET','callback'=>array(__CLASS__,'document_snapshot'),'permission_callback'=>array('TKD_Cloud_Reader','permission')));
         register_rest_route('tkd-cloud/v1', '/capabilities', array('methods' => 'GET', 'callback' => array(__CLASS__, 'capabilities'), 'permission_callback' => array('TKD_Cloud_Reader', 'permission')));
         register_rest_route('tkd-cloud/v1', '/orders/(?P<number>[A-Za-z0-9-]{1,64})/operation-snapshot', array('methods' => 'GET', 'callback' => array(__CLASS__, 'snapshot'), 'permission_callback' => array('TKD_Cloud_Reader', 'permission')));

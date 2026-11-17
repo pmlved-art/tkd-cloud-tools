@@ -1,3 +1,5 @@
+> Historical inventory; superseded by 0.4.0-candidate.md and current source.
+
 # Remaining blockers after reservation evidence b3a7fd2
 
 Source slice SHA256 93fca0fbf94ed59e01b56e2015f61f655f3cfca65d19eba2ed869ff80ad4722e verified locally. Runtime match has NOT been checked. No private invocation, UI redirect trap or live write.

@@ -22,10 +22,11 @@ final class TKD_Cloud_Document_Operations {
     }
     private static function fail($r) { return new WP_Error('tkd_operation_'.$r,'Document operation refused.',array('status'=>503)); }
     public static function pins($op) {
-        if (!self::supports($op)) { return array('verified'=>false,'reason'=>'unsupported_operation'); }
+        if (!self::supports($op) && !in_array($op,array('invoice.pdf','delivery.pdf'),true)) { return array('verified'=>false,'reason'=>'unsupported_operation'); }
         $pins=self::$profile ?? require __DIR__.'/document-pins.php'; $fields=self::$field_profile ?? require __DIR__.'/document-field-pins.php'; $cache=array(); $checked=array();
         foreach ($pins as $key=>$spec) {
             list($class,$name)=explode('::',$key);
+            if ($op==='delivery.pdf' && !in_array($class,array('TKD_FO_Invoices','TKD_FO_Deliveries','TKD_FO_Orders','TKD_FO_Multi_Seller','TKD_FO_Order_Lifecycle'),true)) { continue; }
             if ($op==='reservation.extend' && !in_array($class,array('TKD_FO_Orders','TKD_FO_Order_Lifecycle'),true)) { continue; }
             if ($op!=='reservation.extend' && $name==='handle_reservation_action_locked') { continue; }
             if (strpos($op,'invoice.')===0 && !in_array($class,array('TKD_FO_Invoices','TKD_FO_Orders','TKD_FO_Order_Lifecycle','TKD_FO_Multi_Seller'),true)) { continue; }
@@ -33,10 +34,10 @@ final class TKD_Cloud_Document_Operations {
             $ref=self::$reflection_cache[$class]??(self::$reflection_cache[$class]=new ReflectionClass($class)); if (!$ref->hasMethod($name)) { return array('verified'=>false,'reason'=>'native_missing','method'=>$key); }
             $m=$ref->getMethod($name); $file=$m->getFileName();
             if (!$m->isStatic() || ($spec[0]==='public'?!$m->isPublic():($spec[0]==='protected'?!$m->isProtected():!$m->isPrivate())) || $m->getDeclaringClass()->getName()!==$class) { return array('verified'=>false,'reason'=>'native_visibility_mismatch','method'=>$key); }
-            if (!is_string($file)||!is_file($file)||filesize($file)>2097152) { return array('verified'=>false,'reason'=>'native_source_unavailable','method'=>$key); }
+            if (!is_string($file)||!is_file($file)||!is_readable($file)||@filesize($file)>2097152) { return array('verified'=>false,'reason'=>'native_source_unavailable','method'=>$key); }
             if (!isset($cache[$file])) {
-                $file_hash=hash_file('sha256',$file);if(!is_string($file_hash)){return array('verified'=>false,'reason'=>'native_source_unavailable','method'=>$key);}
-                if(!isset(self::$source_cache[$file])||self::$source_cache[$file]['hash']!==$file_hash){self::$source_cache[$file]=array('hash'=>$file_hash,'lines'=>file($file));}
+                $file_hash=@hash_file('sha256',$file);if(!is_string($file_hash)){return array('verified'=>false,'reason'=>'native_source_unavailable','method'=>$key);}
+                if(!isset(self::$source_cache[$file])||self::$source_cache[$file]['hash']!==$file_hash){self::$source_cache[$file]=array('hash'=>$file_hash,'lines'=>@file($file));}
                 $cache[$file]=self::$source_cache[$file]['lines'];
             }
             $lines=$cache[$file];

@@ -178,6 +178,7 @@ require_once __DIR__ . '/native-contracts.php';
 require_once __DIR__ . '/document-contracts.php';
 require_once __DIR__ . '/reservation-contracts.php';
 require_once __DIR__ . '/document-operations.php';
+require_once __DIR__ . '/document-pdf.php';
 require_once __DIR__ . '/operations.php';
 require_once __DIR__ . '/operator-role.php';
 TKD_Cloud_Operator_Role::boot();

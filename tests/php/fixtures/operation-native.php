@@ -55,6 +55,8 @@ class TKD_FO_Payments {
 class TKD_FO_Order_Lifecycle { public static function installment($id){return $GLOBALS['synthetic_installment']??false;} public static function unpaid($id){return true;} public static function protected_stock($id){return false;} public static function confirmed($id){return false;} }
 class TKD_FO_DB { const DB_VERSION='4'; }
 class TKD_FO_Invoices {
+    public static function download_invoice_pdf(){ $GLOBALS['pdf_request_seen']=$_REQUEST;if(!wp_verify_nonce($_REQUEST['_wpnonce']??'','tkd_fo_download_invoice_pdf_'.($_REQUEST['invoice_id']??'')))throw new Exception('bad nonce');$GLOBALS['pdf_calls']=($GLOBALS['pdf_calls']??0)+1;if(!empty($GLOBALS['pdf_simulate_write'])){($GLOBALS['test_filters']['update_post_metadata'])();}throw new RuntimeException('Synthetic stream ending; no actual PDF');}
+
     public static function ensure_manager_draft($id){return 20;}
     public static function save_invoice($id,$post,$update){
         $GLOBALS['invoice_native_calls']=($GLOBALS['invoice_native_calls']??0)+1;
@@ -68,4 +70,4 @@ class TKD_Sales_Release {
     public static function manager_snapshot($id){$GLOBALS['sales_snapshots']=($GLOBALS['sales_snapshots']??0)+1;return array('id'=>$id,'order'=>12,'invoice'=>20,'mode'=>'np','status'=>'draft','revision'=>str_repeat('a',64),'document_basis'=>str_repeat('b',64),'office_revision'=>str_repeat('c',64),'blockers'=>array(),'fiscal'=>array('state'=>'not_required'));}
     public static function execute_inline($id,$revision,$command){$GLOBALS['sales_calls']=($GLOBALS['sales_calls']??0)+1;return array('posted'=>true,'prepared'=>true,'message'=>'DO_NOT_PRINT');}
 }
-class TKD_FO_Deliveries {}
+class TKD_FO_Deliveries {public static function download_pdf(){throw new RuntimeException('Synthetic delivery stream');}}
