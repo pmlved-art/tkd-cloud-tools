@@ -1,0 +1,83 @@
+{
+  "class": "TKD_FO_Payments",
+  "before_sha256": "474393a1adf826d194d396b875a9166926af8d18d93bdb5818ef0d89c61da382",
+  "after_sha256": "3da72ca57a3d40f441486d5da5703dc716001ee1e3be3da813967151a3fa5708",
+  "live_hash_matched": true,
+  "changed_existing_methods": [
+    "render_meta_box"
+  ],
+  "new_methods": [
+    "reconcile_svitloe_refund"
+  ],
+  "pinned_methods_unchanged": [
+    {
+      "name": "save_new_payment",
+      "sha256": "c6c7e9466f378bb2880afc60695068edd18f85341b17a0e135fd78a41d78a75f"
+    },
+    {
+      "name": "record_payment",
+      "sha256": "1bac5450fc4845510e4dbb1278830a7727d0c009ef51f823d7ceda28d9a2978b"
+    },
+    {
+      "name": "get_payments",
+      "sha256": "74f8228539c79861fb6303a865c7336740e452ebcbb4bdbc12188b0637e9fdfe"
+    },
+    {
+      "name": "order_total",
+      "sha256": "0e55df74ad02e55c1118d3827878bcc66581d64b2db85b0859089adb9b5c9e50"
+    },
+    {
+      "name": "paid_total",
+      "sha256": "5634774a2ff44728119b0e035a6cb6b53490d7439b35cd370f9bdc19786aaf89"
+    },
+    {
+      "name": "recipient_labels",
+      "sha256": "33270a0db032f93a1ae9206ea3aef732f405d6d8ac59d900507a9c7245d85fbb"
+    },
+    {
+      "name": "channel_labels",
+      "sha256": "e547d5f49f2372df8382921ca50ac474d04a71f48cfbfb46c7d49788df37fd07"
+    },
+    {
+      "name": "commission_channels",
+      "sha256": "2575035e77d9f20bec42b1a3028aa5e04f516f05af77ce2e8d943a1a06b7e42f"
+    },
+    {
+      "name": "tov_payment_context",
+      "sha256": "812dea19b6b2c19dea1161f622847d0f3e0664afe94f69e6a7adce22376a9da4"
+    },
+    {
+      "name": "tov_confirmed_payment",
+      "sha256": "fcc95794456f92d8e645375bb6d612c0255ebe79afbc1a622f9aa7eb447390f9"
+    },
+    {
+      "name": "valid_payment_datetime",
+      "sha256": "50502fc9beadd93c6c261dc36bf98cde36ebdf3a3a19751bf1039643fb7d9e71"
+    },
+    {
+      "name": "emeo_received_at",
+      "sha256": "c774d12b165dd43b0eff0ba0ee249f7cbcbb2ef42edb08ae7c8ee1295a78af23"
+    },
+    {
+      "name": "emeo_package",
+      "sha256": "253eba3ebbde7df2efba9f5148a2689da7c664459fc71425307e186048c74223"
+    },
+    {
+      "name": "emeo_allowed",
+      "sha256": "12abddcd11cf2da4a1f2fcf8824a173c61b17b2847b3a0d0aae6162dd32903a2"
+    },
+    {
+      "name": "emeo_order",
+      "sha256": "9661463b354653b8cef9edcfccf1e263bff2cfe11de0f22c10cb0c006185babb"
+    },
+    {
+      "name": "sync_order_after_payment",
+      "sha256": "3dec965be70eeced979be2babe3685b7b647ff17edf256e1605b1101f9175999"
+    },
+    {
+      "name": "sync_split_invoice_statuses",
+      "sha256": "92be5a0adbc6446c61f8c26a0e4b13251c76532e3d9b64fea7398166cc33d232"
+    }
+  ],
+  "review": "Full diff contains one display label for already confirmed refunds and a new admin-only reconcile_svitloe_refund helper, not called by any existing cloud command. No existing payment creation, aggregation or reservation method changed. No live business calls were made."
+}
