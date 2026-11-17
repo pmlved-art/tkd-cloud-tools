@@ -90,6 +90,6 @@ class TKD_FO_Dispatch {
 		check_admin_referer( 'tkd_fo_dispatch_' . $id );
         $GLOBALS['dispatch_nonce_passed']=true;return true;
     }
-    public static function status($id){return array('enabled'=>true,'state'=>'awaiting_handover','blockers'=>array());}
+    public static function status($id){return array('enabled'=>true,'preparation_valid'=>true,'issued_ready'=>true,'state'=>'awaiting_handover','blockers'=>array());}
 }
-class TKD_NP_Dispatch {public static function status($id){return array('enabled'=>true,'state'=>'awaiting_handover','blockers'=>array());}}
+class TKD_NP_Dispatch {public static function status($id){return array('enabled'=>true,'preparation_valid'=>true,'issued_ready'=>true,'state'=>'awaiting_handover','blockers'=>array());}}

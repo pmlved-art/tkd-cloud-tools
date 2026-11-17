@@ -95,7 +95,7 @@ def facts_ok(operation,facts):
 def _outcome(d, operation_id):
     keys = {'operation_id', 'intent_sha256', 'operation', 'state', 'reason', 'payment_saved', 'reservation_sync_verified', 'needs_review', 'retry_native'}
     if isinstance(d,dict) and 'document_id' in d:
-        if type(d['document_id']) is not int or d['document_id']<1 or d.get('operation') not in DOCUMENT_OPERATIONS:
+        if type(d['document_id']) is not int or d['document_id']<1 or not isinstance(d.get('operation'),str) or d.get('operation') not in DOCUMENT_OPERATIONS:
             return False
         keys.add('document_id')
     if isinstance(d,dict) and 'facts' in d:
@@ -211,7 +211,7 @@ def document_payload_ok(operation, v):
 
 
 def document_snapshot(number, operation, payload, include_data=False):
-    if not isinstance(number, str) or not NUMBER.fullmatch(number) or operation not in DOCUMENT_OPERATIONS or not document_payload_ok(operation, payload):
+    if not isinstance(number, str) or not NUMBER.fullmatch(number) or not isinstance(operation,str) or operation not in DOCUMENT_OPERATIONS or not document_payload_ok(operation, payload):
         return {'result': 'invalid_intent'}
     scope = {} if operation=='invoice.draft' else {'hours':payload['hours']} if operation=='reservation.extend' else {'invoice_id':payload['invoice_id']} if operation in {'invoice.issue','delivery.draft'} else {'delivery_id':payload['delivery_id']}
     digest = hashlib.sha256(json.dumps(payload,sort_keys=True,ensure_ascii=True,separators=(',',':')).encode()).hexdigest()
@@ -226,7 +226,7 @@ def document_snapshot(number, operation, payload, include_data=False):
     office=d['office_revision']
     if office is not None and (not isinstance(office,str) or not re.fullmatch('[a-f0-9]{64}',office)) or operation=='delivery.save' and office is None:
         return {'result':'schema_mismatch'}
-    if not document_projection_ok(d['documents']):
+    if not document_projection_ok(d['documents'],d['order_id']):
         return {'result':'schema_mismatch'}
     result={'result':'document_snapshot_verified','http_status':200,**d,'documents':[{'id':x['id'],'type':x['type']} for x in d['documents']]}
     if include_data:
@@ -234,19 +234,29 @@ def document_snapshot(number, operation, payload, include_data=False):
     return result
 
 
-def document_projection_ok(docs):
+def document_projection_ok(docs, order_id=None):
     if not isinstance(docs,list) or len(docs)>50:
         return False
     ids=set()
     for d in docs:
         if not isinstance(d,dict) or set(d)!={'id','type','order_id','invoice_id','number','date','status','seller_key','bank_key','items'} or any(type(d[k]) is not int or d[k]<1 for k in ('id','order_id','invoice_id')) or d['id'] in ids or d['type'] not in ('tkd_invoice','tkd_delivery') or d['status'] not in ('draft','issued','paid','cancelled') or any(not isinstance(d[k],str) or len(d[k].encode())>128 or re.search(r'[\x00-\x1f\x7f]',d[k]) for k in ('number','date','seller_key','bank_key')) or not isinstance(d['items'],list) or len(d['items'])>100:
             return False
+        if order_id is not None and d['order_id']!=order_id or d['type']=='tkd_invoice' and d['invoice_id']!=d['id'] or d['type']=='tkd_delivery' and d['status']=='paid':
+            return False
         ids.add(d['id'])
         if d['date'] and not re.fullmatch(r'\d{4}-\d{2}-\d{2}',d['date']):
             return False
+        if d['date']:
+            try:
+                if datetime.strptime(d['date'],'%Y-%m-%d').strftime('%Y-%m-%d')!=d['date']:
+                    return False
+            except ValueError:
+                return False
         indices=set()
         for row in d['items']:
             if not isinstance(row,dict) or set(row)!={'source_index','sku','name','unit','quantity','unit_price','serial_numbers'} or type(row['source_index']) is not int or row['source_index']<0 or row['source_index'] in indices or any(not isinstance(row[k],str) or len(row[k].encode())>512 or re.search(r'[\x00-\x1f\x7f]',row[k]) for k in ('sku','name','unit')) or not isinstance(row['quantity'],str) or not re.fullmatch(r'[0-9]{1,12}\.[0-9]{3}',row['quantity']) or not isinstance(row['unit_price'],str) or not re.fullmatch(r'[0-9]{1,12}(?:\.[0-9]{1,2})?',row['unit_price']) or not isinstance(row['serial_numbers'],str) or len(row['serial_numbers'].encode())>16000 or re.search(r'[^A-Za-z0-9\r\n,; -]',row['serial_numbers']):
+                return False
+            if not any(c in '123456789' for c in row['quantity']):
                 return False
             indices.add(row['source_index'])
     return True

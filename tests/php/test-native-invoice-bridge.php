@@ -19,4 +19,5 @@ $s=bridge_invoice_state('invoice_pending');native_bridge_check(TKD_Cloud_Documen
 $s=bridge_invoice_state('invoice_pending');$start=time()-3600;$until=$start+72*3600;
 foreach(array('_tkd_fo_stock_state'=>'reserved','_tkd_fo_reservation_stage'=>'extended','_tkd_fo_reservation_started_at'=>(string)$start,'_tkd_fo_reservation_until'=>(string)$until,'_tkd_fo_reserved_items'=>array(array('item_id'=>1,'quantity'=>1)))as $key=>$value){$m[12][$key]=$value;$s['documents'][12][$key]=array($value);}
 $out=TKD_Cloud_Document_Operations::invoke($p,$s);native_bridge_check(get_post_meta(12,'_tkd_fo_reservation_until',true)===(string)$until&&get_post_meta(12,'_tkd_fo_reservation_stage',true)==='extended','existing72 not reset by adapter');
+$s=bridge_invoice_state('invoice_pending');$m[20]['_tkd_fo_buyer_type']='company';$s['documents'][20]['_tkd_fo_buyer_type']=array('company');$out=TKD_Cloud_Document_Operations::invoke($p,$s);native_bridge_check(get_post_meta(20,'_tkd_fo_buyer_type',true)==='company'&&$out[0]==='recorded_needs_review','actual native buyer_type company preserved');
 echo "PASS $count actual-native bridge regression assertions; isolated synthetic WP only\n";
