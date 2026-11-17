@@ -177,11 +177,13 @@ require_once __DIR__ . '/read-extensions.php';
 require_once __DIR__ . '/native-contracts.php';
 require_once __DIR__ . '/document-contracts.php';
 require_once __DIR__ . '/reservation-contracts.php';
+require_once __DIR__ . '/delivery-creation-lock.php';
 require_once __DIR__ . '/document-operations.php';
 require_once __DIR__ . '/document-pdf.php';
 require_once __DIR__ . '/operations.php';
 require_once __DIR__ . '/operator-role.php';
 TKD_Cloud_Operator_Role::boot();
+TKD_Cloud_Delivery_Creation_Lock::boot();
 TKD_Cloud_Reader::boot();
 register_activation_hook(__FILE__, array('TKD_Cloud_Reader', 'activate'));
 // Deactivation unregisters code on subsequent requests; no roles or data are deleted.
