@@ -60,7 +60,7 @@ class ReaderTests(unittest.TestCase):
         self.assertEqual(self.run_response()['result'], 'health_verified')
 
     def test_known_versions_only(self):
-        for version in ('0.1.0', '0.1.1', '0.4.0', '0.4.1'):
+        for version in ('0.1.0', '0.1.1', '0.4.0', '0.4.1', '0.4.2'):
             r = self.run_response(dict(self.data, bridge_version=version))
             self.assertEqual(r['result'], 'health_verified')
             self.assertEqual(r['bridge_version'], version)

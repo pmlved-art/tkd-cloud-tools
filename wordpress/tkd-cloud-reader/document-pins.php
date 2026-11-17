@@ -2,6 +2,7 @@
 if (!defined('ABSPATH')) { exit; }
 // Fixed reviewed candidate pins. No source invocation or arbitrary class input.
 return array(
+    'TKD_NP_Dispatch::status_read' => array('private', 'f553e0115126c626afc855c350247ed7f556f74deb2e520c6ac2820279781125'),
     'TKD_Returning_Customer_20261114::accept' => array('public', 'fc778a16b5bacb0e7f4c5c7cdbb670b4a9ac8c679082fecf1d0ab25e2d977601'),
     'TKD_Returning_Customer_20261114::clear_option_cache' => array('public', '01ee52e7244d6f915c6383376fee1f57058b29e35034fea79067e598a45cd8e7'),
     'TKD_Returning_Customer_20261114::may_accept' => array('public', 'c36aa67f7a893c13c20e903cbcda6cf8b0c77d1b34c130afdf54427d8ef28230'),
@@ -197,7 +198,7 @@ return array(
     'TKD_NP_Dispatch::record' => array('private', '771fd94b9839a47e720ee64d85c107dd1758bd38d2de557f01eebd47c8e4386c'),
     'TKD_NP_Dispatch::revision' => array('private', 'a7f13799ca701a34405af2f39a66adcdc5d316c606b73e438ed558848d487adf'),
     'TKD_NP_Dispatch::save' => array('private', 'a6db088279f96d3403df542402e11d8b1a701bb2ebf9d0df0030f7ab5402086b'),
-    'TKD_NP_Dispatch::status' => array('public', '5a5f77bee774407230659be81ce7dec3c1e57e84f488213f474f65258db1e58c'),
+    'TKD_NP_Dispatch::status' => array('public', '2f6ac3b056fa85e5c10cbf6c60bc8c7db3f64da7644f8ff2a048f71f5695f4e4'),
     'TKD_NP_Dispatch::task' => array('private', '6f96bf78312b3e5717d84d377786f3273e131dce389a4a44a4bb6cee3db5847a'),
     'TKD_NP_Dispatch::text' => array('private', '729b32576274ec140ede4c7e638eaf4f1a293330e92eac440584faaee63edef1'),
     'TKD_NP_Dispatch::unique_order' => array('private', 'b3b477e3335f1252e028ef72dbaf6c4a7fd451beed016f3e142608be53f58f2d'),

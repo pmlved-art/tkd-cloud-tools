@@ -1,4 +1,4 @@
-# TKD Cloud Reader 0.4.1
+# TKD Cloud Reader 0.4.2
 
 Захищене підключення до чинної бази ТКД. HTTPS і окремий WordPress
 Application Password користувача tkd-cloud залишаються без змін.
@@ -68,3 +68,14 @@ ZIP містить лише production PHP і цей README. Тести, клі�
 Немає impersonation або нових системних прав. Перевірка live після установки
 має бути GET-only до узгодження всіх pins. Новий API усіх mismatch у цьому
 патчі не додається: diagnostics, як раніше, повертає першу відмову.
+
+## Сумісність NP status 0.4.2 (кандидат для review)
+
+За наданим source із хостингу оновлено лише pin `TKD_NP_Dispatch::status`
+та додано приватний `status_read`. Публічний status залишається точкою
+виклику: перевіряє id, виконує fresh, потім status_read. `status_for_list`
+не використовується для дій. Усі інші pins, дозволи й бізнесоперації незмінні.
+Точні старий/new native bodies дають однакові результати на синтетичних
+сценаріях прав, підготовки, передачі та reconciliation; helpers замокані.
+Це не live перевірка операцій: після review/установлення потрібні GET
+capabilities та snapshots. Drift приватного методу блокує виконання.
