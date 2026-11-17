@@ -1,9 +1,9 @@
 {
   "version": "0.4.2",
-  "source_review_complete": false,
+  "source_review_complete": true,
   "base_source_commit": "a253a1dd117908d933df74a62687006e2136e069",
   "evidence_commit": "e5a3592",
-  "independent_review": "Pending; no installer until review approval",
+  "independent_review": "Compared production against a253a1dd: version, README, three reviewed source hash replacements and six dependency pins only. Uploaded NP status is an exact semantics-preserving extraction; Nov16 deployment sources preserve native seller/fiscal and narrow WM100UG1 quantity rules. Production mutation implementation, roles and secret handling unchanged. New dependency live reflection is still pending installation.",
   "local_tests": {
     "php": [
       "8.4"
@@ -38,7 +38,27 @@
     "tkd-cloud-reader/document-state-keys.php": "6c2bae8a6520416c4ebd6d137495eabe215bb648370a87c1732aeb92c96c4bde",
     "tkd-cloud-reader/delivery-creation-lock.php": "8528ba6aeb917a0b88f28a870ccb32e5bc056b5cb95ab343c1022ca4fc16bc26",
     "tkd-cloud-reader/uninstall.php": "7efd25200254542d00c457d32f4651ead8c7da9350d089ca4ccb04a4bb224a00",
-    "tkd-cloud-reader/README.md": "40aa4795e3a6ee40d25a653dae76bb7c29dd90bd3c8b2f6eedb0a634504dc813"
+    "tkd-cloud-reader/README.md": "a52dcc5f6ff6709393632269b44ee29520b880c742373f6c6b461cc21d94c3ef"
   },
-  "additional_evidence_commit": "cec6a526"
+  "additional_evidence_commit": "cec6a526",
+  "reviewed_code_commit": "40dc6ec251523de766c6adb7ed2476b34c478c8a",
+  "independent_local_tests": {
+    "reviewed_code_commit": "40dc6ec251523de766c6adb7ed2476b34c478c8a",
+    "php": [
+      "7.4",
+      "8.4"
+    ],
+    "np_status": 116,
+    "np_scenarios": 19,
+    "gateway_aggregate": 163,
+    "pdf_boundaries": 14,
+    "shared_creation_lock": 16,
+    "returning_ownership": 50,
+    "python": 43,
+    "native_quantity_lifecycle": 17,
+    "production_mutations": false,
+    "release_scanner": 90,
+    "native_invoice": 15,
+    "reservation": 24
+  }
 }
