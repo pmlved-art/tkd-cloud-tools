@@ -5,6 +5,7 @@ final class TKD_Cloud_Document_Operations {
     private static $profile = null;
     private static $field_profile = null;
     private static $source_cache = array();
+    private static $reflection_cache = array();
     const CAPS = array('invoice.draft'=>'tkd_cloud_invoice','invoice.issue'=>'tkd_cloud_invoice','reservation.extend'=>'tkd_cloud_extend_reservation','delivery.draft'=>'tkd_cloud_delivery_draft','shipment.issue'=>'tkd_cloud_issue_delivery');
     const BUYER = array('buyer_name','buyer_tax_id','buyer_vat_id','buyer_address','buyer_phone','buyer_email','receiver','payer','contract','application');
     public static function supports($op) { return is_string($op) && isset(self::CAPS[$op]); }
@@ -29,7 +30,7 @@ final class TKD_Cloud_Document_Operations {
             if ($op!=='reservation.extend' && $name==='handle_reservation_action_locked') { continue; }
             if (strpos($op,'invoice.')===0 && !in_array($class,array('TKD_FO_Invoices','TKD_FO_Orders','TKD_FO_Order_Lifecycle','TKD_FO_Multi_Seller'),true)) { continue; }
             if (!class_exists($class,false)) { return array('verified'=>false,'reason'=>'native_missing','method'=>$key); }
-            $ref=new ReflectionClass($class); if (!$ref->hasMethod($name)) { return array('verified'=>false,'reason'=>'native_missing','method'=>$key); }
+            $ref=self::$reflection_cache[$class]??(self::$reflection_cache[$class]=new ReflectionClass($class)); if (!$ref->hasMethod($name)) { return array('verified'=>false,'reason'=>'native_missing','method'=>$key); }
             $m=$ref->getMethod($name); $file=$m->getFileName();
             if (!$m->isStatic() || ($spec[0]==='public'?!$m->isPublic():($spec[0]==='protected'?!$m->isProtected():!$m->isPrivate())) || $m->getDeclaringClass()->getName()!==$class) { return array('verified'=>false,'reason'=>'native_visibility_mismatch','method'=>$key); }
             if (!is_string($file)||!is_file($file)||filesize($file)>2097152) { return array('verified'=>false,'reason'=>'native_source_unavailable','method'=>$key); }
@@ -148,7 +149,7 @@ final class TKD_Cloud_Document_Operations {
         $lock='tkd_cloud_delivery_'.substr(hash('sha256',$wpdb->prefix.'|'.$key),0,40);
         if((string)$wpdb->get_var($wpdb->prepare('SELECT GET_LOCK(%s,5)',$lock))!=='1'){throw new RuntimeException('number_lock');}
         try{
-            $next=get_option($key,0);if(!is_numeric($next)||(int)$next<0||(int)$next>999999999){throw new RuntimeException('number_schema');}$next=(int)$next+1;
+            $next=get_option($key,0);if((!is_int($next)&&(!is_string($next)||!preg_match('/\A[0-9]{1,9}\z/D',$next)))||(int)$next<0||(int)$next>999999999){throw new RuntimeException('number_schema');}$next=(int)$next+1;
             $number='';for($i=0;$i<100;$i++,$next++){$candidate=$year.'-'.str_pad((string)$next,4,'0',STR_PAD_LEFT);$dupes=get_posts(array('post_type'=>'tkd_delivery','post_status'=>'any','posts_per_page'=>2,'fields'=>'ids','meta_query'=>array(array('key'=>'_tkd_fo_delivery_seller_key','value'=>$seller),array('key'=>'_tkd_fo_delivery_number','value'=>$candidate))));if(!is_array($dupes)){throw new RuntimeException('number_query');}if(!$dupes){$number=$candidate;break;}}
             if($number===''){throw new RuntimeException('number_bound');}update_option($key,$next,false);if((int)get_option($key)!==$next){throw new RuntimeException('sequence_readback');}
             $id=wp_insert_post(array('post_type'=>'tkd_delivery','post_status'=>'publish','post_title'=>'Видаткова накладна '.$number),true);if(is_wp_error($id)||!is_int($id)||$id<1){throw new RuntimeException('insert');}
@@ -197,7 +198,8 @@ final class TKD_Cloud_Document_Operations {
             $invoice=$p['payload']['invoice_id'];$posted=array('tkd_fo_invoice_nonce'=>wp_create_nonce('tkd_fo_save_invoice'),'tkd_fo_seller_key'=>self::value($s,$invoice,'_tkd_fo_seller_key'),'tkd_fo_bank_key'=>self::value($s,$invoice,'_tkd_fo_bank_key'),'tkd_fo_invoice_number'=>$p['payload']['number'],'tkd_fo_invoice_date'=>$p['payload']['date'],'tkd_fo_invoice_status'=>'issued','tkd_fo_buyer_type'=>self::value($s,$invoice,'_tkd_fo_buyer_type'));
             foreach(self::BUYER as $field){$v=self::value($s,$invoice,'_tkd_fo_'.$field);if(!is_string($v)||strlen($v)>4096||sanitize_text_field($v)!==$v){throw new RuntimeException('buyer_schema');}$posted['tkd_fo_'.$field]=$v;}
             self::form($posted,static function()use($invoice){TKD_FO_Invoices::save_invoice($invoice,get_post($invoice),true);});
-            $good=get_post_meta($invoice,'_tkd_fo_invoice_status',true)==='issued'&&get_post_meta($invoice,'_tkd_fo_invoice_number',true)===$p['payload']['number']&&(int)get_post_meta($invoice,'_tkd_fo_order_id',true)===$id&&self::ownership($p,$s);
+            $good=get_post_type($invoice)==='tkd_invoice'&&get_post_meta($invoice,'_tkd_fo_invoice_date',true)===$p['payload']['date']&&get_post_meta($invoice,'_tkd_fo_invoice_status',true)==='issued'&&get_post_meta($invoice,'_tkd_fo_invoice_number',true)===$p['payload']['number']&&(int)get_post_meta($invoice,'_tkd_fo_order_id',true)===$id&&self::ownership($p,$s);
+            foreach(array('_tkd_fo_seller_key','_tkd_fo_bank_key','_tkd_fo_invoice_items','_tkd_fo_invoice_items_subtotal','_tkd_fo_invoice_discount','_tkd_fo_invoice_subtotal','_tkd_fo_invoice_vat','_tkd_fo_invoice_total') as $key){$good=$good&&get_post_meta($invoice,$key,true)===self::value($s,$invoice,$key);}
             foreach(self::BUYER as $field){$good=$good&&get_post_meta($invoice,'_tkd_fo_'.$field,true)===self::value($s,$invoice,'_tkd_fo_'.$field);}
             return $good?array('complete','document_verified',$invoice):array('unknown','native_effect_unverified',$invoice);
         }

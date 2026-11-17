@@ -9,7 +9,7 @@ class TKD_FO_Orders {
     }
     public static function release_reservation_mutex($id) { $GLOBALS['depth'][$id]--; }
     public static function reservation_total_deadline($id,$hours){return 2000000000+$hours*3600;}
-    public static function claim_responsibility($id,$reason){return array();}
+    public static function claim_responsibility($id,$reason){if(!empty($GLOBALS['simulate_owner_change'])){$GLOBALS['options']['tkd_fo_order_responsibility_'.$id]=array('user_id'=>999);}return array();}
     public static function get_responsibility($id) { return array(); }
     private static function reservation_manager_is_manual($id,$manager) { return true; }
 }
@@ -61,7 +61,7 @@ class TKD_FO_Invoices {
         if(empty($GLOBALS['options'])||!$update||!wp_verify_nonce(wp_unslash($_POST['tkd_fo_invoice_nonce']??''),'tkd_fo_save_invoice'))throw new Exception('missing pending or nonce');
         if(isset($_POST['unrelated']))throw new Exception('unexpected POST');
         if(!empty($GLOBALS['invoice_native_die'])){($GLOBALS['test_filters']['wp_die_handler'])()();}
-        update_post_meta($id,'_tkd_fo_invoice_status','issued');update_post_meta($id,'_tkd_fo_invoice_number',wp_unslash($_POST['tkd_fo_invoice_number']));
+        update_post_meta($id,'_tkd_fo_invoice_date',wp_unslash($_POST['tkd_fo_invoice_date']));update_post_meta($id,'_tkd_fo_invoice_status','issued');update_post_meta($id,'_tkd_fo_invoice_number',wp_unslash($_POST['tkd_fo_invoice_number']));
     }
 }
 class TKD_Sales_Release {
