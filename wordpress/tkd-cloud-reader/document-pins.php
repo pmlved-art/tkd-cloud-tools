@@ -111,7 +111,7 @@ return array(
     'TKD_FO_Invoices::number' => array('public', '6479fe354baa8cf606f3ffdf4add02539b661f4f7f3918ea0fbfb32daecdb39c'),
     'TKD_FO_Invoices::number_exists' => array('private', '5e9a8b6652ee7d84382d057c49d9ecae0535e697cfc41be9d57736add853fee0'),
     'TKD_FO_Invoices::output_pdf' => array('public', 'b0a3a2eb64ae322100b6c6f4cbc35cdf5a621a625d7024706146f0e0247af3cb'),
-    'TKD_FO_Invoices::payment_copy_text' => array('public', 'ab88771e70314166c132f81b75af322c5c223ab1de0b4328facfaae8368b9279'),
+    'TKD_FO_Invoices::payment_copy_text' => array('public', '1589ed35ba8bfb7d331e249d65913d96a4d54be1077d511679cb5ffcfc6353ab'),
     'TKD_FO_Invoices::payment_text_from_data' => array('private', '7a84970f93c5d6e976a4250e1d07d92660454f66511c5bdeef65ff8df26aeaae'),
     'TKD_FO_Invoices::payment_text_panel' => array('private', '8bd38838c93d9f315656b22845d7af7f92bcfb919ad66638113fd344ec311385'),
     'TKD_FO_Invoices::pdf_invoice_html' => array('private', '9e59a965371f9ea91d5f510eff3c7f088d38bb0ad627f8c46624e4050282e27b'),

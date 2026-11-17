@@ -67,7 +67,29 @@ class TKD_FO_Invoices {
     }
 }
 class TKD_Sales_Release {
-    public static function manager_snapshot($id){$GLOBALS['sales_snapshots']=($GLOBALS['sales_snapshots']??0)+1;return array('id'=>$id,'order'=>12,'invoice'=>20,'mode'=>'np','status'=>'draft','revision'=>str_repeat('a',64),'document_basis'=>str_repeat('b',64),'office_revision'=>str_repeat('c',64),'blockers'=>array(),'fiscal'=>array('state'=>'not_required'));}
-    public static function execute_inline($id,$revision,$command){$GLOBALS['sales_calls']=($GLOBALS['sales_calls']??0)+1;return array('posted'=>true,'prepared'=>true,'message'=>'DO_NOT_PRINT');}
+    public static function manager_snapshot($id){$GLOBALS['sales_snapshots']=($GLOBALS['sales_snapshots']??0)+1;return array('id'=>$id,'order'=>12,'invoice'=>20,'mode'=>$GLOBALS['synthetic_release_mode']??'np','status'=>'draft','revision'=>str_repeat('a',64),'document_basis'=>str_repeat('b',64),'office_revision'=>str_repeat('c',64),'blockers'=>array(),'fiscal'=>array('state'=>'not_required'));}
+    public static function execute_inline($id,$revision,$command){$GLOBALS['sales_calls']=($GLOBALS['sales_calls']??0)+1;if(($GLOBALS['synthetic_release_mode']??'np')==='pickup'){TKD_FO_Dispatch::execute($id,'prepare',$revision,array('confirmed'=>true));}return array('posted'=>true,'prepared'=>true,'message'=>'DO_NOT_PRINT');}
 }
-class TKD_FO_Deliveries {public static function download_pdf(){throw new RuntimeException('Synthetic delivery stream');}}
+class TKD_Warehouse_Scanner {public static function office_revision($id){return hash('sha256',serialize($GLOBALS['meta'][$id]??array()));}}
+class TKD_FO_Deliveries {
+    public static function save_delivery($id,$post,$update){
+        $GLOBALS['delivery_save_calls']=($GLOBALS['delivery_save_calls']??0)+1;
+        if(!$update||!wp_verify_nonce($_POST['tkd_fo_delivery_nonce']??'','tkd_fo_save_delivery')||($_POST['tkd_ws_office_revision']??'')!==TKD_Warehouse_Scanner::office_revision($id)||($_POST['tkd_fo_delivery_status']??'')!=='draft'||isset($_POST['tkd_fo_delivery_command'])||isset($_POST['unrelated']))throw new RuntimeException('Invalid fixed native delivery save');
+        if(!empty($GLOBALS['reject_delivery_save']))return;
+        $items=wp_unslash($_POST['tkd_fo_delivery_items']);foreach($items as &$row){$row['source_index']=(int)$row['source_index'];$row['quantity']=(float)$row['quantity'];$row['unit_price']=(float)$row['unit_price'];}unset($row);update_post_meta($id,'_tkd_fo_delivery_items',$items);
+        foreach(array('number','date','place','receiver','payer','contract','application') as $field){update_post_meta($id,'_tkd_fo_delivery_'.$field,wp_unslash($_POST['tkd_fo_delivery_'.$field]));}
+    }
+    public static function download_pdf(){throw new RuntimeException('Synthetic delivery stream');}}
+
+// Exact native execute signature/access/nonce prelude; later domain services stubbed.
+class TKD_FO_Dispatch {
+    private static function can($id){return current_user_can('manage_tkd_felicity')&&current_user_can('edit_post',$id);}
+    private static function error($m){return new WP_Error('synthetic_dispatch');}
+	public static function execute( $id, $action, $revision, $input = array(), $preflight = null ) {
+		if ( ( $_SERVER['REQUEST_METHOD'] ?? '' ) !== 'POST' || ! self::can( $id ) ) { return self::error( 'Немає доступу до цієї видаткової або некоректний метод.' ); }
+		check_admin_referer( 'tkd_fo_dispatch_' . $id );
+        $GLOBALS['dispatch_nonce_passed']=true;return true;
+    }
+    public static function status($id){return array('enabled'=>true,'state'=>'awaiting_handover','blockers'=>array());}
+}
+class TKD_NP_Dispatch {public static function status($id){return array('enabled'=>true,'state'=>'awaiting_handover','blockers'=>array());}}

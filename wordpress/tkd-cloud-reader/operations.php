@@ -113,14 +113,13 @@ final class TKD_Cloud_Operations {
     public static function document_snapshot($request) {
         $auth=TKD_Cloud_Reader::permission($request);if($auth!==true){return $auth;}
         $q=$request->get_query_params();
-        if(!is_array($q)||count($q)!==2||!isset($q['operation'],$q['payload'])||!TKD_Cloud_Document_Operations::supports($q['operation'])||!is_string($q['payload'])||strlen($q['payload'])>2048){return self::error('payload_schema',400);}
-        $payload=json_decode($q['payload'],true);
-        if(!TKD_Cloud_Document_Operations::validate($q['operation'],$payload)){return self::error('payload_schema',400);}
+        if(!is_array($q)||count($q)!==3||array_diff(array_keys($q),array('operation','scope','payload_digest'))||!isset($q['operation'],$q['scope'],$q['payload_digest'])||!TKD_Cloud_Document_Operations::supports($q['operation'])||!is_string($q['scope'])||strlen($q['scope'])>256||!is_string($q['payload_digest'])||!preg_match('/\A[a-f0-9]{64}\z/D',$q['payload_digest'])){return self::error('payload_schema',400);}
+        $payload=json_decode($q['scope'],true);if(!TKD_Cloud_Document_Operations::valid_scope($q['operation'],$payload)){return self::error('payload_schema',400);}$payload['_snapshot_digest']=$q['payload_digest'];
         $pins=TKD_Cloud_Document_Operations::pins($q['operation']);if(!$pins['verified']){return self::error($pins['reason'],503);}
         $number=$request->get_url_params()['number']??null;$minimal=TKD_Cloud_Reader::read_number($number);if($minimal instanceof WP_Error){return $minimal;}
         $id=$minimal->get_data()['id'];$state=self::state($id,$number,$q['operation'],$payload);if($state instanceof WP_Error){return $state;}
-        $documents=array();foreach($state['documents'] as $document_id=>$row){$documents[]=array('id'=>$document_id,'type'=>$row['type']);}
-        return new WP_REST_Response(array('documents'=>$documents,'bridge_version'=>TKD_Cloud_Reader::VERSION,'schema_version'=>'tkd-document-operation-snapshot-v1-candidate','order_id'=>$id,'revision'=>$state['revision'],'operation'=>$q['operation'],'native_edit_post'=>current_user_can('edit_post',$id),'editor_locked'=>$state['document_editor_locked'],'preview_is_acceptance'=>false));
+        $documents=TKD_Cloud_Document_Operations::projection($state);if($documents instanceof WP_Error){return $documents;}
+        return new WP_REST_Response(array('office_revision'=>$state['native_office_revision'],'documents'=>$documents,'bridge_version'=>TKD_Cloud_Reader::VERSION,'schema_version'=>'tkd-document-operation-snapshot-v1-candidate','order_id'=>$id,'revision'=>$state['revision'],'operation'=>$q['operation'],'native_edit_post'=>current_user_can('edit_post',$id),'editor_locked'=>$state['document_editor_locked'],'preview_is_acceptance'=>false));
     }
 
     public static function snapshot($request) {
@@ -158,9 +157,11 @@ final class TKD_Cloud_Operations {
     private static function valid_record($r) {
         $fields = array('operation_id', 'operation', 'actor', 'order_id', 'digest', 'intent_sha256', 'state', 'reason', 'payment_saved', 'updated_at', 'audit');
         if(is_array($r)&&isset($r['document_id'])){if(!is_int($r['document_id'])||$r['document_id']<1||!TKD_Cloud_Document_Operations::supports($r['operation']??null)){return false;}$fields[]='document_id';}
+        if(is_array($r)&&array_key_exists('reserve_verified',$r)){if(!is_bool($r['reserve_verified'])||($r['operation']??'')!=='invoice.issue'){return false;}$fields[]='reserve_verified';}
+        if(is_array($r)&&isset($r['facts'])){if(!TKD_Cloud_Document_Operations::valid_facts($r['operation']??null,$r['facts'])){return false;}$fields[]='facts';}
         $reasons = array('native_not_yet_verified', 'interrupted_or_in_progress_no_retry', 'native_status_verified', 'native_effect_unverified', 'native_not_accepted', 'payment_recorded_sync_unverified', 'payment_recorded_native_interrupted', 'native_interrupted', 'journal_persistence_failed', 'mobile_access', 'mobile_status', 'mobile_busy', 'mobile_stale', 'mobile_document', 'mobile_protected', 'mobile_paid', 'mobile_money', 'mobile_invoice', 'mobile_link', 'document_verified', 'document_needs_review');
         return is_array($r) && count($r) === count($fields) && !array_diff(array_keys($r), $fields) && self::uuid($r['operation_id'])
-            && in_array($r['operation'], array('status.change', 'payment.add_manual', 'invoice.draft', 'delivery.draft', 'invoice.issue', 'reservation.extend', 'shipment.issue'), true) && is_int($r['actor']) && $r['actor'] > 0 && is_int($r['order_id']) && $r['order_id'] > 0
+            && in_array($r['operation'], array('status.change', 'payment.add_manual', 'invoice.draft', 'delivery.draft', 'delivery.save', 'invoice.issue', 'reservation.extend', 'shipment.issue'), true) && is_int($r['actor']) && $r['actor'] > 0 && is_int($r['order_id']) && $r['order_id'] > 0
             && is_string($r['digest']) && preg_match('/\A[a-f0-9]{64}\z/D', $r['digest']) && is_string($r['intent_sha256']) && preg_match('/\A[a-f0-9]{64}\z/D', $r['intent_sha256'])
             && in_array($r['state'], array('pending', 'complete', 'failed', 'unknown', 'recorded_needs_review'), true) && in_array($r['reason'], $reasons, true)
             && (is_null($r['payment_saved']) || is_bool($r['payment_saved'])) && is_int($r['updated_at']) && is_array($r['audit']) && count($r['audit']) >= 1 && count($r['audit']) <= 4;
@@ -168,8 +169,9 @@ final class TKD_Cloud_Operations {
 
     private static function summary($record) {
         $state = $record['state'] === 'pending' ? 'unknown' : $record['state'];
-        $summary = array('operation_id' => $record['operation_id'], 'intent_sha256' => $record['intent_sha256'], 'operation' => $record['operation'], 'state' => $state, 'reason' => $record['state'] === 'pending' ? 'interrupted_or_in_progress_no_retry' : $record['reason'], 'payment_saved' => $record['payment_saved'], 'reservation_sync_verified' => false, 'needs_review' => in_array($state, array('unknown', 'recorded_needs_review'), true), 'retry_native' => false);
+        $summary = array('operation_id' => $record['operation_id'], 'intent_sha256' => $record['intent_sha256'], 'operation' => $record['operation'], 'state' => $state, 'reason' => $record['state'] === 'pending' ? 'interrupted_or_in_progress_no_retry' : $record['reason'], 'payment_saved' => $record['payment_saved'], 'reservation_sync_verified' => $record['reserve_verified']??false, 'needs_review' => in_array($state, array('unknown', 'recorded_needs_review'), true), 'retry_native' => false);
         if(isset($record['document_id'])){$summary['document_id']=$record['document_id'];}
+        if(isset($record['facts'])){$summary['facts']=$record['facts'];}
         return $summary;
     }
 
@@ -193,7 +195,7 @@ final class TKD_Cloud_Operations {
 
     private static function validate($p) {
         $keys = array('operation_id', 'operation', 'order_id', 'number', 'revision', 'payload');
-        if (!is_array($p) || count($p) !== 6 || array_diff(array_keys($p), $keys) || !self::uuid($p['operation_id']) || !in_array($p['operation'], array('status.change', 'payment.add_manual', 'invoice.draft', 'delivery.draft', 'invoice.issue', 'reservation.extend', 'shipment.issue'), true) || !is_int($p['order_id']) || $p['order_id'] < 1 || !is_string($p['number']) || !preg_match('/\ATKD-[A-Za-z0-9-]{1,60}\z/D', $p['number']) || !is_string($p['revision']) || !preg_match('/\A[a-f0-9]{64}\z/D', $p['revision']) || !is_array($p['payload'])) { return false; }
+        if (!is_array($p) || count($p) !== 6 || array_diff(array_keys($p), $keys) || !self::uuid($p['operation_id']) || !in_array($p['operation'], array('status.change', 'payment.add_manual', 'invoice.draft', 'delivery.draft', 'delivery.save', 'invoice.issue', 'reservation.extend', 'shipment.issue'), true) || !is_int($p['order_id']) || $p['order_id'] < 1 || !is_string($p['number']) || !preg_match('/\ATKD-[A-Za-z0-9-]{1,60}\z/D', $p['number']) || !is_string($p['revision']) || !preg_match('/\A[a-f0-9]{64}\z/D', $p['revision']) || !is_array($p['payload'])) { return false; }
         $v = $p['payload'];
         if (TKD_Cloud_Document_Operations::supports($p['operation'])) { return TKD_Cloud_Document_Operations::validate($p['operation'],$v); }
         if ($p['operation'] === 'status.change') { return count($v) === 1 && isset($v['choice']) && in_array($v['choice'], self::CHOICES, true); }
@@ -317,7 +319,7 @@ final class TKD_Cloud_Operations {
             if (!self::claim($key, $candidate)) { return self::error('claim_failed'); }
             $record = $candidate;
             try {
-                if ($document) { $out = TKD_Cloud_Document_Operations::invoke($p,$before); if(isset($out[2])&&is_int($out[2])&&$out[2]>0){$record['document_id']=$out[2];} return self::finish($key,$record,$out[0],$out[1]); }
+                if ($document) { $out = TKD_Cloud_Document_Operations::invoke($p,$before); if(isset($out[2])&&is_int($out[2])&&$out[2]>0){$record['document_id']=$out[2];} if(isset($out[3])&&is_bool($out[3])){$record['reserve_verified']=$out[3];} if(isset($out[4])&&is_array($out[4])){$record['facts']=$out[4];} return self::finish($key,$record,$out[0],$out[1]); }
                 if ($p['operation'] === 'status.change') {
                     $result = TKD_FO_Mobile_Cabinet_20261011::change_status($p['order_id'], $p['payload']['choice'], $before['baseline']);
                     $after = self::state($p['order_id'], $p['number'], $p['operation'], $p['payload']);

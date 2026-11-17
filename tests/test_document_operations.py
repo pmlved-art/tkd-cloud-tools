@@ -19,7 +19,7 @@ class DocumentOperationsTests(unittest.TestCase):
         self.assertFalse(op._intent_ok(self.intent('invoice.issue',{'invoice_id':20,'number':'SYNTH','date':'2026-02-30'})))
 
     def test_get_document_snapshot_projection(self):
-        data={'documents':[{'id':12,'type':'tkd_order'}],'bridge_version':'0.4.0','schema_version':'tkd-document-operation-snapshot-v1-candidate','order_id':12,'revision':'a'*64,'operation':'reservation.extend','native_edit_post':True,'editor_locked':False,'preview_is_acceptance':False}
+        data={'office_revision':None,'documents':[],'bridge_version':'0.4.0','schema_version':'tkd-document-operation-snapshot-v1-candidate','order_id':12,'revision':'a'*64,'operation':'reservation.extend','native_edit_post':True,'editor_locked':False,'preview_is_acceptance':False}
         with patch.object(op,'_request',return_value={'result':'received','data':data}) as request:
             result=op.document_snapshot('TKD-SYNTHETIC','reservation.extend',{'hours':48})
             self.assertEqual(result['result'],'document_snapshot_verified')
@@ -27,6 +27,33 @@ class DocumentOperationsTests(unittest.TestCase):
             self.assertNotIn('Authorization',str(request.call_args))
             data['extra']='SYNTHETIC_PII'
             self.assertEqual(op.document_snapshot('TKD-SYNTHETIC','reservation.extend',{'hours':48})['result'],'schema_mismatch')
+
+    def test_private_projection_and_save_scope(self):
+        payload={'delivery_id':30,'items':[{'source_index':0,'quantity':'1.000','serial_numbers':'111111111111111111'}]}
+        self.assertTrue(op._intent_ok(self.intent('delivery.save',payload)))
+        doc={'id':20,'type':'tkd_invoice','order_id':12,'invoice_id':20,'number':'SYNTH-INVOICE','date':'2026-11-17','status':'issued','seller_key':'fop_pm','bank_key':'privat','items':[{'source_index':0,'sku':'SYNTH','name':'SYNTHETIC_PRIVATE_ITEM','unit':'pcs','quantity':'1.000','unit_price':'100.00','serial_numbers':'111111111111111111'}]}
+        d={'bridge_version':'0.4.0','schema_version':'tkd-document-operation-snapshot-v1-candidate','order_id':12,'revision':'a'*64,'operation':'delivery.save','native_edit_post':True,'editor_locked':False,'preview_is_acceptance':False,'office_revision':'b'*64,'documents':[doc]}
+        with patch.object(op,'_request',return_value={'result':'received','data':d}) as request:
+            summary=op.document_snapshot('TKD-SYNTHETIC','delivery.save',payload)
+            self.assertEqual(summary['result'],'document_snapshot_verified')
+            self.assertNotIn('SYNTHETIC_PRIVATE_ITEM',str(summary))
+            self.assertNotIn('111111111111111111',str(summary))
+            self.assertNotIn('111111111111111111',request.call_args.args[1])
+            self.assertIn('payload_digest=',request.call_args.args[1])
+            private=op.document_snapshot('TKD-SYNTHETIC','delivery.save',payload,include_data=True)
+            self.assertEqual(private['data']['documents'][0]['number'],'SYNTH-INVOICE')
+        doc['private_token']='SYNTHETIC_REJECT'
+        self.assertFalse(op.document_projection_ok([doc]))
+
+    def test_persisted_facts_and_invoice_reserve_semantics(self):
+        self.assertTrue(op.facts_ok('reservation.extend',{'reservation':{'deadline':2000000000,'total_hours':48}}))
+        self.assertFalse(op.facts_ok('reservation.extend',{'reservation':{'deadline':2000000000,'total_hours':4}}))
+        self.assertTrue(op.facts_ok('shipment.issue',{'shipment':{'posted':True,'prepared':True,'dispatch_state':'awaiting_handover','physical_confirmation':False}}))
+        intent=self.intent('invoice.issue',{'invoice_id':20,'number':'SYNTH','date':'2026-11-17'})
+        outcome={'operation_id':intent['operation_id'],'intent_sha256':'a'*64,'operation':'invoice.issue','state':'complete','reason':'document_verified','payment_saved':None,'reservation_sync_verified':False,'needs_review':False,'retry_native':False}
+        self.assertFalse(op._outcome(outcome,intent['operation_id']))
+        outcome['reservation_sync_verified']=True
+        self.assertTrue(op._outcome(outcome,intent['operation_id']))
 
     def test_document_outcome_and_no_post_retry(self):
         intent=self.intent('reservation.extend',{'hours':48})

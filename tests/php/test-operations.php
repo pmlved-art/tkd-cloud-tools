@@ -30,7 +30,7 @@ class JournalDatabase {
  public $prefix='wp_synthetic_';public $options='wp_synthetic_options';public $suppressed=false;public $pending=array();
  function suppress_errors($v){$old=$this->suppressed;$this->suppressed=$v;return $old;}
  function get_var($sql){return '1';}
- function get_results($sql,$format){if(strpos($sql,'SHOW COLUMNS')===0)return array_map(function($c){return array('Field'=>$c,'Type'=>in_array($c,array('on_hand','reserved','reserved_supply','incoming'))?'decimal(18,6)':'varchar(128)');},array('id','sku','on_hand','reserved','reserved_supply','incoming','active','updated_at'));if(strpos($sql,'SELECT id,sku')===0)return array(array('id'=>'1','sku'=>$this->pending[0],'on_hand'=>$GLOBALS['stock_amount']??'100.000000','reserved'=>'0.000000','reserved_supply'=>'0.000000','incoming'=>'0.000000','active'=>'1','updated_at'=>'2026-11-17 00:00:00'));if(strpos($sql,'SHOW INDEX FROM `wp_synthetic_options`')!==0)throw new Exception('Unapproved metadata SQL');return $GLOBALS['missing_unique']?array():array(array('Non_unique'=>'0','Column_name'=>'option_name','Seq_in_index'=>'1'));}
+ function get_results($sql,$format){if(strpos($sql,'SHOW COLUMNS')===0)return array_map(function($c){return array('Field'=>$c,'Type'=>in_array($c,array('on_hand','reserved','reserved_supply','incoming'))?'decimal(18,6)':'varchar(128)');},array('id','sku','on_hand','reserved','reserved_supply','incoming','active','updated_at'));if(strpos($sql,'SELECT id,sku')===0)return array(array('id'=>'1','sku'=>$this->pending[0],'on_hand'=>$GLOBALS['stock_amount']??'100.000000','reserved'=>$GLOBALS['stock_reserved']??'0.000000','reserved_supply'=>'0.000000','incoming'=>'0.000000','active'=>'1','updated_at'=>'2026-11-17 00:00:00'));if(strpos($sql,'SHOW INDEX FROM `wp_synthetic_options`')!==0)throw new Exception('Unapproved metadata SQL');return $GLOBALS['missing_unique']?array():array(array('Non_unique'=>'0','Column_name'=>'option_name','Seq_in_index'=>'1'));}
  function prepare($sql,...$args){$this->pending=$args;return $sql;}
  function query($sql){
   if(strpos($sql,'INSERT IGNORE INTO `wp_synthetic_options` (`option_name`,`option_value`,`autoload`)')!==0)throw new Exception('Unapproved SQL');
@@ -46,7 +46,7 @@ function sanitize_text_field($v){return strip_tags((string)$v);}function wp_crea
 function wp_verify_nonce($v,$a){return hash_equals(hash('sha256',$a),$v);}
 function wp_slash($v){return is_array($v)?array_map('wp_slash',$v):addslashes($v);}function wp_unslash($v){return is_array($v)?array_map('wp_unslash',$v):stripslashes($v);}
 function get_role($name){return $GLOBALS['roles'][$name]??null;}function add_role($name,$label,$caps){$GLOBALS['roles'][$name]=(object)array('capabilities'=>$caps);}
-function wp_die($m){throw new RuntimeException('REDACTED_ADMIN_REFUSAL');}function check_admin_referer($a){if(!$GLOBALS['admin_nonce'])wp_die('nonce');}
+function wp_die($m){throw new RuntimeException('REDACTED_ADMIN_REFUSAL');}function check_admin_referer($a){if(strpos($a,'tkd_fo_dispatch_')===0){if(!wp_verify_nonce($_REQUEST['_wpnonce']??'',$a))throw new RuntimeException('Synthetic native REQUEST nonce missing');return true;}if(!$GLOBALS['admin_nonce'])wp_die('nonce');}
 function get_users($q){return $GLOBALS['assigned_operators']??array(10);}
 function get_user_by($f,$login){return $GLOBALS['technical_user'];}
 function wp_safe_redirect($url){throw new LogicException('SYNTHETIC_REDIRECT');}function admin_url($p){return $p;}

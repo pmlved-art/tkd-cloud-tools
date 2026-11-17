@@ -19,9 +19,9 @@ from scripts.preflight import NoRedirect
 BASE = 'https://tkd-ukraine.com.ua:443/wp-json/tkd-cloud/v1/'
 UUID = re.compile(r'[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}')
 NUMBER = re.compile(r'TKD-[A-Za-z0-9-]{1,60}')
-DOCUMENT_OPERATIONS = {'delivery.draft', 'invoice.draft', 'invoice.issue', 'reservation.extend', 'shipment.issue'}
+DOCUMENT_OPERATIONS = {'delivery.save', 'delivery.draft', 'invoice.draft', 'invoice.issue', 'reservation.extend', 'shipment.issue'}
 STATES = {'complete', 'failed', 'unknown', 'recorded_needs_review'}
-DOCUMENT_ERRORS = {'document_bound','document_identity','document_access','document_schema','rest_context_required','installment_unsupported','invoice_identity_or_state','delivery_identity_or_state','delivery_items_unverified','state_unverified','closed_or_paid','payment_or_confirmation','protected_stock','no_active_reserve','reserve_expired','total_deadline_expired_or_missing_start'}
+DOCUMENT_ERRORS = {'closed_order','document_bound','document_identity','document_access','document_schema','rest_context_required','installment_unsupported','invoice_identity_or_state','delivery_identity_or_state','delivery_items_unverified','state_unverified','closed_or_paid','payment_or_confirmation','protected_stock','no_active_reserve','reserve_expired','total_deadline_expired_or_missing_start'}
 SAFE_ERRORS = {'tkd_application_password_required', 'tkd_forbidden', 'tkd_https_required', 'rest_not_logged_in'} | {'tkd_operation_' + x for x in ('forbidden', 'payload_schema', 'order_identity', 'ambiguous_state', 'state_bound', 'invoice_schema', 'baseline_schema', 'invalid_id', 'not_found', 'split_invoice_review_required', 'tov_context_review_required', 'bank_attestation_required', 'seller_channel', 'emeo_reference', 'money_schema', 'total_required', 'ledger_schema', 'possible_duplicate', 'legacy_payment_ambiguous', 'overpayment', 'busy', 'editor_locked', 'edit_lock_schema', 'edit_lock_unavailable', 'lock_unavailable', 'idempotency_mismatch', 'stale_revision', 'claim_failed', 'state_unavailable', 'native_drift', 'native_missing', 'native_source_unavailable', 'native_visibility_mismatch')}
 SAFE_ERRORS |= {'tkd_operation_' + x for x in DOCUMENT_ERRORS}
 REASONS = {'interrupted_or_in_progress_no_retry', 'native_status_verified', 'native_effect_unverified', 'native_not_accepted', 'payment_recorded_sync_unverified', 'payment_recorded_native_interrupted', 'native_interrupted', 'journal_persistence_failed', 'mobile_access', 'mobile_status', 'mobile_busy', 'mobile_stale', 'mobile_document', 'mobile_protected', 'mobile_paid', 'mobile_money', 'mobile_invoice', 'mobile_link', 'document_verified', 'document_needs_review'}
@@ -37,7 +37,7 @@ def json_unique(pairs):
 
 
 def _request(method, path, payload=None):
-    permitted = (method == 'POST' and path == 'operations') or (method == 'GET' and (path == 'capabilities' or re.fullmatch(r'orders/TKD-[A-Za-z0-9-]{1,60}/operation-snapshot', path) or re.fullmatch(r'orders/TKD-[A-Za-z0-9-]{1,60}/document-snapshot\?operation=[A-Za-z.]+&payload=[A-Za-z0-9%+_.~&=\-]*', path) or path.startswith('operations/') and UUID.fullmatch(path[11:])))
+    permitted = (method == 'POST' and path == 'operations') or (method == 'GET' and (path == 'capabilities' or re.fullmatch(r'orders/TKD-[A-Za-z0-9-]{1,60}/operation-snapshot', path) or re.fullmatch(r'orders/TKD-[A-Za-z0-9-]{1,60}/document-snapshot\?operation=[A-Za-z.]+&scope=[A-Za-z0-9%+_.~\-]+&payload_digest=[a-f0-9]{64}', path) or path.startswith('operations/') and UUID.fullmatch(path[11:])))
     if not permitted:
         return {'result': 'invalid_route'}
     auth = os.environ.get('TKD_CLOUD_AUTHORIZATION', '')
@@ -60,8 +60,9 @@ def _request(method, path, payload=None):
         except HTTPError as error:
             response = error
         with response:
-            raw = response.read(65537)
-            if len(raw) > 65536:
+            limit = 262144 if '/document-snapshot?' in path else 65536
+            raw = response.read(limit + 1)
+            if len(raw) > limit:
                 return {'result': 'response_bound', 'http_status': response.code}
             if 300 <= response.code < 400:
                 return {'result': 'redirect_not_followed', 'http_status': response.code}
@@ -79,16 +80,34 @@ def _request(method, path, payload=None):
         return {'result': 'schema_mismatch'}
 
 
+def facts_ok(operation,facts):
+    if not isinstance(facts,dict):
+        return False
+    if operation=='reservation.extend':
+        v=facts.get('reservation')
+        return set(facts)=={'reservation'} and isinstance(v,dict) and set(v)=={'deadline','total_hours'} and type(v['deadline']) is int and 0<v['deadline']<10**12 and type(v['total_hours']) is int and v['total_hours'] in (36,48,72)
+    if operation=='shipment.issue':
+        v=facts.get('shipment')
+        return set(facts)=={'shipment'} and isinstance(v,dict) and set(v)=={'posted','prepared','dispatch_state','physical_confirmation'} and (v['posted'] is None or type(v['posted']) is bool) and (v['prepared'] is None or type(v['prepared']) is bool) and v['dispatch_state'] in (None,'preparing','awaiting_handover','handed_over') and v['physical_confirmation'] is False
+    return False
+
+
 def _outcome(d, operation_id):
     keys = {'operation_id', 'intent_sha256', 'operation', 'state', 'reason', 'payment_saved', 'reservation_sync_verified', 'needs_review', 'retry_native'}
     if isinstance(d,dict) and 'document_id' in d:
         if type(d['document_id']) is not int or d['document_id']<1 or d.get('operation') not in DOCUMENT_OPERATIONS:
             return False
         keys.add('document_id')
-    shape = isinstance(d, dict) and set(d) == keys and d['operation_id'] == operation_id and isinstance(d['intent_sha256'], str) and re.fullmatch('[a-f0-9]{64}', d['intent_sha256']) and isinstance(d['operation'], str) and d['operation'] in ({'status.change', 'payment.add_manual'} | DOCUMENT_OPERATIONS) and isinstance(d['state'], str) and d['state'] in STATES and isinstance(d['reason'], str) and d['reason'] in REASONS and (d['payment_saved'] is None or type(d['payment_saved']) is bool) and d['reservation_sync_verified'] is False and type(d['needs_review']) is bool and d['needs_review'] == (d['state'] in {'unknown', 'recorded_needs_review'}) and d['retry_native'] is False
+    if isinstance(d,dict) and 'facts' in d:
+        if not facts_ok(d['operation'],d['facts']):
+            return False
+        keys.add('facts')
+    shape = isinstance(d, dict) and set(d) == keys and d['operation_id'] == operation_id and isinstance(d['intent_sha256'], str) and re.fullmatch('[a-f0-9]{64}', d['intent_sha256']) and isinstance(d['operation'], str) and d['operation'] in ({'status.change', 'payment.add_manual'} | DOCUMENT_OPERATIONS) and isinstance(d['state'], str) and d['state'] in STATES and isinstance(d['reason'], str) and d['reason'] in REASONS and (d['payment_saved'] is None or type(d['payment_saved']) is bool) and type(d['reservation_sync_verified']) is bool and (not d['reservation_sync_verified'] or d['operation'] == 'invoice.issue') and type(d['needs_review']) is bool and d['needs_review'] == (d['state'] in {'unknown', 'recorded_needs_review'}) and d['retry_native'] is False
     if not shape:
         return False
     if d['operation'] in DOCUMENT_OPERATIONS:
+        if d['operation']=='invoice.issue' and d['state']=='complete' and d['reservation_sync_verified'] is not True:
+            return False
         return d['payment_saved'] is None and (d['state'] != 'complete' or d['reason'] == 'document_verified') and (d['state'] != 'recorded_needs_review' or d['reason'] == 'document_needs_review')
     if d['operation'] == 'status.change':
         return d['payment_saved'] is None and d['state'] != 'recorded_needs_review' and (d['state'] != 'complete' or d['reason'] == 'native_status_verified')
@@ -168,6 +187,15 @@ def document_payload_ok(operation, v):
         return not v
     if operation == 'reservation.extend':
         return set(v) == {'hours'} and type(v['hours']) is int and v['hours'] in (36, 48, 72)
+    if operation == 'delivery.save':
+        if set(v) != {'delivery_id','items'} or type(v['delivery_id']) is not int or not 0 < v['delivery_id'] < 10**18 or not isinstance(v['items'],list) or not 1 <= len(v['items']) <= 100:
+            return False
+        seen=set()
+        for row in v['items']:
+            if not isinstance(row,dict) or set(row) != {'source_index','quantity','serial_numbers'} or type(row['source_index']) is not int or row['source_index']<0 or row['source_index'] in seen or not isinstance(row['quantity'],str) or not re.fullmatch(r'[0-9]{1,12}(?:\.[0-9]{1,3})?',row['quantity']) or not any(c in '123456789' for c in row['quantity']) or not isinstance(row['serial_numbers'],str) or len(row['serial_numbers'].encode())>16000 or re.search(r'[^A-Za-z0-9\r\n,; -]',row['serial_numbers']):
+                return False
+            seen.add(row['source_index'])
+        return True
     if operation == 'delivery.draft':
         return set(v) == {'invoice_id'} and type(v['invoice_id']) is int and 0 < v['invoice_id'] < 10**18
     if operation == 'shipment.issue':
@@ -182,21 +210,47 @@ def document_payload_ok(operation, v):
     return False
 
 
-def document_snapshot(number, operation, payload):
+def document_snapshot(number, operation, payload, include_data=False):
     if not isinstance(number, str) or not NUMBER.fullmatch(number) or operation not in DOCUMENT_OPERATIONS or not document_payload_ok(operation, payload):
         return {'result': 'invalid_intent'}
-    query = urlencode({'operation': operation, 'payload': json.dumps(payload, ensure_ascii=True, separators=(',', ':'))})
+    scope = {} if operation=='invoice.draft' else {'hours':payload['hours']} if operation=='reservation.extend' else {'invoice_id':payload['invoice_id']} if operation in {'invoice.issue','delivery.draft'} else {'delivery_id':payload['delivery_id']}
+    digest = hashlib.sha256(json.dumps(payload,sort_keys=True,ensure_ascii=True,separators=(',',':')).encode()).hexdigest()
+    query = urlencode({'operation':operation,'scope':json.dumps(scope,separators=(',',':')),'payload_digest':digest})
     r = _request('GET', 'orders/' + number + '/document-snapshot?' + query)
     if r.get('result') != 'received':
         return r
     d = r['data']
-    keys = {'documents','bridge_version','schema_version','order_id','revision','operation','native_edit_post','editor_locked','preview_is_acceptance'}
+    keys = {'office_revision','documents','bridge_version','schema_version','order_id','revision','operation','native_edit_post','editor_locked','preview_is_acceptance'}
     if set(d) != keys or d['bridge_version'] != '0.4.0' or d['schema_version'] != 'tkd-document-operation-snapshot-v1-candidate' or d['operation'] != operation or type(d['order_id']) is not int or d['order_id'] < 1 or not isinstance(d['revision'], str) or not re.fullmatch('[a-f0-9]{64}', d['revision']) or type(d['native_edit_post']) is not bool or type(d['editor_locked']) is not bool or d['preview_is_acceptance'] is not False:
         return {'result': 'schema_mismatch'}
-    docs=d['documents']
-    if not isinstance(docs,list) or not 1 <= len(docs) <= 51 or any(not isinstance(x,dict) or set(x)!={'id','type'} or type(x['id']) is not int or x['id']<1 or x['type'] not in ('tkd_order','tkd_invoice','tkd_delivery') for x in docs) or len({x['id'] for x in docs})!=len(docs):
+    office=d['office_revision']
+    if office is not None and (not isinstance(office,str) or not re.fullmatch('[a-f0-9]{64}',office)) or operation=='delivery.save' and office is None:
         return {'result':'schema_mismatch'}
-    return {'result': 'document_snapshot_verified', 'http_status': 200, **d}
+    if not document_projection_ok(d['documents']):
+        return {'result':'schema_mismatch'}
+    result={'result':'document_snapshot_verified','http_status':200,**d,'documents':[{'id':x['id'],'type':x['type']} for x in d['documents']]}
+    if include_data:
+        result['data']=d
+    return result
+
+
+def document_projection_ok(docs):
+    if not isinstance(docs,list) or len(docs)>50:
+        return False
+    ids=set()
+    for d in docs:
+        if not isinstance(d,dict) or set(d)!={'id','type','order_id','invoice_id','number','date','status','seller_key','bank_key','items'} or any(type(d[k]) is not int or d[k]<1 for k in ('id','order_id','invoice_id')) or d['id'] in ids or d['type'] not in ('tkd_invoice','tkd_delivery') or d['status'] not in ('draft','issued','paid','cancelled') or any(not isinstance(d[k],str) or len(d[k].encode())>128 or re.search(r'[\x00-\x1f\x7f]',d[k]) for k in ('number','date','seller_key','bank_key')) or not isinstance(d['items'],list) or len(d['items'])>100:
+            return False
+        ids.add(d['id'])
+        if d['date'] and not re.fullmatch(r'\d{4}-\d{2}-\d{2}',d['date']):
+            return False
+        indices=set()
+        for row in d['items']:
+            if not isinstance(row,dict) or set(row)!={'source_index','sku','name','unit','quantity','unit_price','serial_numbers'} or type(row['source_index']) is not int or row['source_index']<0 or row['source_index'] in indices or any(not isinstance(row[k],str) or len(row[k].encode())>512 or re.search(r'[\x00-\x1f\x7f]',row[k]) for k in ('sku','name','unit')) or not isinstance(row['quantity'],str) or not re.fullmatch(r'[0-9]{1,12}\.[0-9]{3}',row['quantity']) or not isinstance(row['unit_price'],str) or not re.fullmatch(r'[0-9]{1,12}(?:\.[0-9]{1,2})?',row['unit_price']) or not isinstance(row['serial_numbers'],str) or len(row['serial_numbers'].encode())>16000 or re.search(r'[^A-Za-z0-9\r\n,; -]',row['serial_numbers']):
+                return False
+            indices.add(row['source_index'])
+    return True
+
 
 
 def _intent_ok(p):
@@ -311,8 +365,8 @@ def main():
         result = snapshot(args.number)
     elif args.command == 'document-snapshot':
         try:
-            raw = sys.stdin.buffer.read(2049)
-            spec = json.loads(raw, object_pairs_hook=json_unique) if len(raw) <= 2048 else {}
+            raw = sys.stdin.buffer.read(8193)
+            spec = json.loads(raw, object_pairs_hook=json_unique) if len(raw) <= 8192 else {}
             result = document_snapshot(args.number, spec.get('operation'), spec.get('payload')) if isinstance(spec, dict) and set(spec) == {'operation','payload'} else {'result':'invalid_intent'}
         except (ValueError, UnicodeError, TypeError):
             result = {'result':'invalid_intent'}
