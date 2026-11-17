@@ -19,7 +19,7 @@ class DocumentOperationsTests(unittest.TestCase):
         self.assertFalse(op._intent_ok(self.intent('invoice.issue',{'invoice_id':20,'number':'SYNTH','date':'2026-02-30'})))
 
     def test_get_document_snapshot_projection(self):
-        data={'office_revision':None,'documents':[],'bridge_version':'0.4.2','schema_version':'tkd-document-operation-snapshot-v1-candidate','order_id':12,'revision':'a'*64,'operation':'reservation.extend','native_edit_post':True,'editor_locked':False,'preview_is_acceptance':False}
+        data={'office_revision':None,'documents':[],'bridge_version':'0.4.3','schema_version':'tkd-document-operation-snapshot-v1-candidate','order_id':12,'revision':'a'*64,'operation':'reservation.extend','native_edit_post':True,'editor_locked':False,'preview_is_acceptance':False}
         with patch.object(op,'_request',return_value={'result':'received','data':data}) as request:
             result=op.document_snapshot('TKD-SYNTHETIC','reservation.extend',{'hours':48})
             self.assertEqual(result['result'],'document_snapshot_verified')
@@ -78,7 +78,7 @@ class DocumentOperationsTests(unittest.TestCase):
         operations.update({name: {'implemented':False,'reason':'unsupported'} for name in unsupported})
         report = {'verified':False,'reason':'native_drift','method':'TKD_Returning_Customer_20261114::accept','expected_sha256':'a'*64,'actual_sha256':'b'*64}
         operations['invoice.draft']['contracts'] = report
-        data = {'bridge_version':'0.4.2','operations':operations,'manual_channels':['pumb','privatbank','raiffeisen','bank_emeo'],'preview_is_acceptance':False}
+        data = {'bridge_version':'0.4.3','operations':operations,'manual_channels':['pumb','privatbank','raiffeisen','bank_emeo'],'preview_is_acceptance':False}
         with patch('scripts.operations._request',return_value={'result':'received','data':data}):
             result = op.capabilities()
             self.assertEqual(result['result'],'capabilities_verified')

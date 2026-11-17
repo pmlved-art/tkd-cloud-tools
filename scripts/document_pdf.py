@@ -23,7 +23,7 @@ def download_pdf(number, document_id, output=None):
         return {'result': 'managed_proxy_required'}
     try:
         opener = build_opener(ProxyHandler(), NoRedirect(), HTTPSHandler(context=ssl.create_default_context()))
-        request = Request(BASE + 'orders/' + number + '/documents/' + str(document_id) + '/pdf', headers={'Authorization': auth, 'Accept': 'application/pdf', 'User-Agent': 'TKD-Cloud-PDF/0.4.2'}, method='GET')
+        request = Request(BASE + 'orders/' + number + '/documents/' + str(document_id) + '/pdf', headers={'Authorization': auth, 'Accept': 'application/pdf', 'User-Agent': 'TKD-Cloud-PDF/0.4.3'}, method='GET')
         with opener.open(request, timeout=45) as response:
             if response.code != 200:
                 return {'result': 'http_error', 'http_status': response.code}

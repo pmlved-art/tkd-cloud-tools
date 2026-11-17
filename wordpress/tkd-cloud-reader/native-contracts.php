@@ -18,7 +18,7 @@ final class TKD_Cloud_Native_Contracts {
                     'status_baseline' => '83725341863332f694e5196f5d25e76bf18ddaeb02d2c997b3ea54fa81b83383',
                     'change_status' => 'd7d0303c7c6dfac0f9a6ff4ba4348a15ed32cff5fc50182fb0eacfe9e7da112b',
                 )),
-                'TKD_FO_Payments' => array('file' => '474393a1adf826d194d396b875a9166926af8d18d93bdb5818ef0d89c61da382', 'methods' => array(
+                'TKD_FO_Payments' => array('file' => '3da72ca57a3d40f441486d5da5703dc716001ee1e3be3da813967151a3fa5708', 'methods' => array(
                     'save_new_payment' => 'c6c7e9466f378bb2880afc60695068edd18f85341b17a0e135fd78a41d78a75f',
                     'record_payment' => '1bac5450fc4845510e4dbb1278830a7727d0c009ef51f823d7ceda28d9a2978b',
                     'get_payments' => '74f8228539c79861fb6303a865c7336740e452ebcbb4bdbc12188b0637e9fdfe',

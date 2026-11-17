@@ -1,4 +1,4 @@
-# TKD Cloud Reader 0.4.2
+# TKD Cloud Reader 0.4.3
 
 Захищене підключення до чинної бази ТКД. HTTPS і окремий WordPress
 Application Password користувача tkd-cloud залишаються без змін.
@@ -90,3 +90,15 @@ Quantity-only стосується лише WM100UG1, цілої додатно�
 до stock при fiscal error; це не перевірка реальної фіскалізації.
 Повні scanner task/dispatch/intent залишаються в revision. Нові кандидати
 потребують runtime pin-збігу після установки; при drift виконання блокується.
+
+## Payments source compatibility 0.4.3 (кандидат для review)
+
+Оновлено лише повний file hash Payments за reviewed evidence, який збігається
+з live hash. Усі 17 попередніх method pins та guard-перевірки незмінні.
+Native зміни стосуються display label та окремого admin refund helper;
+`reconcile_svitloe_refund` не відкривається через cloud API. Набір восьми
+операцій і дев’ять прав ролі незмінні; `manage_options` не додається.
+Регресія звіряє 17 pins із evidence та відмову refund-командам. Це не
+повторний AST-аудит повного native файла і не live перевірка запису.
+Після незалежного review/установлення потрібні GET capabilities/snapshots:
+базовий Payments drift раніше не дозволив звірити NP/Release live.
