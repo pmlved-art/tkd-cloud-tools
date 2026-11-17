@@ -1,4 +1,4 @@
-# TKD Cloud Reader 0.4.3
+# TKD Cloud Reader 0.4.4
 
 Захищене підключення до чинної бази ТКД. HTTPS і окремий WordPress
 Application Password користувача tkd-cloud залишаються без змін.
@@ -102,3 +102,32 @@ Native зміни стосуються display label та окремого admin
 повторний AST-аудит повного native файла і не live перевірка запису.
 Після незалежного review/установлення потрібні GET capabilities/snapshots:
 базовий Payments drift раніше не дозволив звірити NP/Release live.
+
+## Fiscal compatibility та source diagnostics 0.4.4 (кандидат для review)
+
+Оновлено 4 Fiscal Gate pins та додано 3 self-залежності за reviewed
+`fiscal-source-review-20261117.json`. Native фінансові правила не копіюються
+і не змінюються. Source із business-record constants у репозиторій не
+додається. Лише context hash уже звірений live; решта нових pins потребують
+перевірки після review/установлення.
+
+`GET /wp-json/tkd-cloud/v1/source-diagnostics` перевіряє ВСІ фіксовані base
+file/method pins, document method pins та точні field declarations незалежно
+від fail-first guards операцій. Той самий HTTPS/Application Password/readcap
+і no-store; параметри class/path/function не приймаються. Reflection та
+читання source використовуються лише для метаданих/hash, native методи не
+викликаються. Відповідь містить тільки class/method, тип перевірки, enum
+причини й очікуваний/фактичний SHA256. Для field declaration — class та
+фіксований field_index; неоднозначний/відсутній actual slice має null hash.
+Ні source, ні шляхи, ні значення constants/полів не повертаються.
+
+Ліміти: 1024 перевірки, 512 mismatch, 64 файли, 2 MiB на файл, 16 MiB
+загалом, 50000 newlines на файл. Body клієнта обмежений 256 KiB. Досягнення
+ліміту явно дає complete=false, truncated=true, verified=false, bound_reason.
+Missing/drift не припиняють інші перевірки в межах лімітів. Inventory count
+рахує перевірки: метод у base і document guards може перевірятися двічі.
+
+Запуск із checkout: `python3 -m scripts.source_diagnostics`. Секрет береться
+з чинного binding, proxy/TLS успадковуються; немає POST або retry запису.
+CLI друкує лише валідовані metadata; exit 0 лише за complete verified.
+Diagnostic success не послаблює execution guards і не доводить live write.

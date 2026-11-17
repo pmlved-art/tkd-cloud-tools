@@ -87,6 +87,10 @@ final class TKD_Cloud_Native_Contracts {
         return array('verified' => true, 'reason' => 'matched');
     }
 
+    public static function source_inventory() {
+        return self::profile()['classes'];
+    }
+
     public static function channels() {
         return self::profile()['manual_channels'];
     }

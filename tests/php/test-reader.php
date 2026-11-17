@@ -59,7 +59,7 @@ check($created===array('tkd_cloud_reader',array('read'=>true,'tkd_cloud_read_ord
 $role=(object)array('capabilities'=>array('read'=>true,'tkd_cloud_read_orders'=>true,'manage_options'=>true));
 try { TKD_Cloud_Reader::activate(); check(false,'conflicting role'); } catch (RuntimeException $e) { check(true,'existing privileged role rejected'); }
 TKD_Cloud_Reader::routes();
-check(count($routes)===12,'read routes and fixed operation routes registered');
+check(count($routes)===13,'read routes and fixed operation routes registered');
 foreach ($routes as $path=>$route) {
  if ($path==='tkd-cloud/v1/operations') check($route['methods']==='POST' && $route['permission_callback']===array('TKD_Cloud_Operations','permission'),'fixed POST operation callback');
  else check($route['methods']==='GET' && $route['permission_callback']===array('TKD_Cloud_Reader','permission'),'GET with permission callback');

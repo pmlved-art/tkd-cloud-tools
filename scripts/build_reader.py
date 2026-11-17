@@ -5,15 +5,15 @@ import json
 from pathlib import Path
 import zipfile
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.4.3'
-FILES = ('tkd-cloud-reader.php','read-extensions.php','operations.php','operator-role.php','native-contracts.php','document-contracts.php','reservation-contracts.php','document-operations.php','document-pdf.php','document-pins.php','document-field-pins.php','document-state-keys.php','delivery-creation-lock.php','uninstall.php','README.md')
+VERSION = '0.4.4'
+FILES = ('tkd-cloud-reader.php','read-extensions.php','operations.php','operator-role.php','native-contracts.php','source-diagnostics.php','document-contracts.php','reservation-contracts.php','document-operations.php','document-pdf.php','document-pins.php','document-field-pins.php','document-state-keys.php','delivery-creation-lock.php','uninstall.php','README.md')
 def main():
-    reviewed = json.loads((ROOT / 'review/release-0.4.3.json').read_text())
+    reviewed = json.loads((ROOT / 'review/release-0.4.4.json').read_text())
     assert reviewed['source_review_complete'] is True
     files = {'tkd-cloud-reader/' + n: ROOT / 'wordpress/tkd-cloud-reader' / n for n in FILES}
     hashes = {n: hashlib.sha256(p.read_bytes()).hexdigest() for n,p in files.items()}
     assert hashes == reviewed['production_files'], 'Source changed after review'
-    assert 'Version: 0.4.3' in files['tkd-cloud-reader/tkd-cloud-reader.php'].read_text()
+    assert 'Version: 0.4.4' in files['tkd-cloud-reader/tkd-cloud-reader.php'].read_text()
     target = ROOT / ('artifacts/tkd-cloud-reader-' + VERSION + '.zip')
     target.parent.mkdir(exist_ok=True)
     with zipfile.ZipFile(target, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:

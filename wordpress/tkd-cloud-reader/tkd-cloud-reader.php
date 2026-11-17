@@ -2,13 +2,13 @@
 /**
  * Plugin Name: TKD Cloud Reader (candidate)
  * Description: Minimal Application Password protected order reader. Server schema review required.
- * Version: 0.4.3
+ * Version: 0.4.4
  * Requires PHP: 7.4
  */
 if (!defined('ABSPATH')) { exit; }
 
 final class TKD_Cloud_Reader {
-    const VERSION = '0.4.3';
+    const VERSION = '0.4.4';
     const SCHEMA = 'tkd-order-minimal-v1-candidate';
     const CAP = 'tkd_cloud_read_orders';
     private static $application_user_id = 0;
@@ -43,6 +43,7 @@ final class TKD_Cloud_Reader {
     }
 
     public static function routes() {
+        TKD_Cloud_Source_Diagnostics::routes();
         TKD_Cloud_Read_Extensions::routes();
         TKD_Cloud_Operations::routes();
         foreach (array('/health' => 'health', '/orders/(?P<number>[A-Za-z0-9-]{1,64})' => 'order') as $route => $callback) {
@@ -175,6 +176,7 @@ final class TKD_Cloud_Reader {
 }
 require_once __DIR__ . '/read-extensions.php';
 require_once __DIR__ . '/native-contracts.php';
+require_once __DIR__ . '/source-diagnostics.php';
 require_once __DIR__ . '/document-contracts.php';
 require_once __DIR__ . '/reservation-contracts.php';
 require_once __DIR__ . '/delivery-creation-lock.php';
