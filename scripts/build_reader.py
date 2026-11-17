@@ -1,38 +1,34 @@
 #!/usr/bin/env python3
-"""Build the reviewed 0.3.1 candidate from explicit source files; no secrets."""
+"""Build only the byte-exact reviewed production gateway."""
 import hashlib
+import json
 from pathlib import Path
 import zipfile
-
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.3.1'
-
-
+VERSION = '0.4.0'
+FILES = ('tkd-cloud-reader.php','read-extensions.php','operations.php','operator-role.php','native-contracts.php','document-contracts.php','reservation-contracts.php','document-operations.php','document-pdf.php','document-pins.php','document-field-pins.php','document-state-keys.php','delivery-creation-lock.php','uninstall.php','README.md')
 def main():
-    if 'Version: 0.3.1' not in (ROOT / 'wordpress/tkd-cloud-reader/tkd-cloud-reader.php').read_text():
-        raise SystemExit('Installer ZIP blocked: pending gateway release requires independent review and a reviewed packaging update.')
-    files = {'tkd-cloud-reader/' + n: ROOT / 'wordpress/tkd-cloud-reader' / n
-             for n in ('tkd-cloud-reader.php', 'read-extensions.php', 'operations.php', 'operator-role.php', 'native-contracts.php', 'uninstall.php', 'README.md')}
-    files.update({'tkd-cloud-reader/tests/' + n: ROOT / 'tests/php' / n
-                  for n in ('test-reader.php', 'test-read-extensions.php', 'test-manifest-bounds.php', 'test-operations.php', 'test-details-diagnostics.php', 'fixtures/operation-native.php', 'fixtures/tkd-classes.php')})
-    target = ROOT / ('artifacts/tkd-cloud-reader-' + VERSION + '-candidate.zip')
+    reviewed = json.loads((ROOT / 'review/release-0.4.0.json').read_text())
+    assert reviewed['source_review_complete'] is True
+    files = {'tkd-cloud-reader/' + n: ROOT / 'wordpress/tkd-cloud-reader' / n for n in FILES}
+    hashes = {n: hashlib.sha256(p.read_bytes()).hexdigest() for n,p in files.items()}
+    assert hashes == reviewed['production_files'], 'Source changed after review'
+    assert 'Version: 0.4.0' in files['tkd-cloud-reader/tkd-cloud-reader.php'].read_text()
+    target = ROOT / ('artifacts/tkd-cloud-reader-' + VERSION + '.zip')
     target.parent.mkdir(exist_ok=True)
     with zipfile.ZipFile(target, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
         for name, source in sorted(files.items()):
-            item = zipfile.ZipInfo(name, (2026, 11, 17, 0, 0, 0))
-            item.compress_type = zipfile.ZIP_DEFLATED
-            item.external_attr = 0o100644 << 16
-            archive.writestr(item, source.read_bytes())
+            info = zipfile.ZipInfo(name, (2026,11,17,0,0,0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o100644 << 16
+            archive.writestr(info, source.read_bytes())
     with zipfile.ZipFile(target) as archive:
         assert archive.testzip() is None
         assert set(archive.namelist()) == set(files)
         for name, source in files.items():
             assert archive.read(name) == source.read_bytes()
-    sources = list(files.values()) + [ROOT / n for n in ('scripts/reader.py', 'scripts/read_contracts.py', 'scripts/build_reader.py', 'tests/test_read_extensions.py')] + [target]
-    manifest = '\n'.join(hashlib.sha256(p.read_bytes()).hexdigest() + '  ' + str(p.relative_to(ROOT)) for p in sources) + '\n'
-    (ROOT / ('artifacts/SHA256SUMS-' + VERSION)).write_text(manifest)
-    print(target.name, hashlib.sha256(target.read_bytes()).hexdigest(), target.stat().st_size)
-
-
+    digest = hashlib.sha256(target.read_bytes()).hexdigest()
+    target.with_suffix('.zip.sha256').write_text(digest + '  ' + target.name + '\n')
+    print(target.name, digest, target.stat().st_size)
 if __name__ == '__main__':
     main()
