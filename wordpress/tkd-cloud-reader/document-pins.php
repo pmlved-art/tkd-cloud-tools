@@ -2,6 +2,10 @@
 if (!defined('ABSPATH')) { exit; }
 // Fixed reviewed candidate pins. No source invocation or arbitrary class input.
 return array(
+    'TKD_Returning_Customer_20261114::accept' => array('public', 'fc778a16b5bacb0e7f4c5c7cdbb670b4a9ac8c679082fecf1d0ab25e2d977601'),
+    'TKD_Returning_Customer_20261114::clear_option_cache' => array('public', '01ee52e7244d6f915c6383376fee1f57058b29e35034fea79067e598a45cd8e7'),
+    'TKD_Returning_Customer_20261114::may_accept' => array('public', 'c36aa67f7a893c13c20e903cbcda6cf8b0c77d1b34c130afdf54427d8ef28230'),
+    'TKD_Returning_Customer_20261114::pending' => array('public', 'ac3363516fedbd6e31341750477fb9a3fc28dd39089ef5ff4b8b09dae63da5c7'),
     'TKD_FO_Deliveries::allocated_quantities' => array('private', '407cdd014257b911bb1087313c99649cf622aee1553094b321c9c664e64c0c55'),
     'TKD_FO_Deliveries::calculate_totals' => array('private', 'a2059be2d55f5fcd37bed0f85197dfa600b1fb380c3f74d459cf801143a3be63'),
     'TKD_FO_Deliveries::create_from_invoice' => array('public', 'f3c3ac1d9e8d504a5bce8c1de5ae8c10d89719c66e0172360adfd727b3e72892'),
@@ -128,7 +132,7 @@ return array(
     'TKD_FO_Multi_Seller::delivery_terms' => array('public', '69493bb3826ded0984e6941e8f797e9c438b0d13f92a27019d1982d66733e467'),
     'TKD_FO_Multi_Seller::hash' => array('private', '330754466473552ee3e5593e8b051b8097e7e5fc556708bc218c17d8bbb60afe'),
     'TKD_FO_Multi_Seller::invoice_terms' => array('public', 'b89431f26520fb7d28384e5760d7ea3cf434c7d45c8ed2de286e3780d281117d'),
-    'TKD_FO_Multi_Seller::sellers' => array('public', 'ad82d1fb99b743d775d67494b86652cec01f94508839feced96a63e135b8204d'),
+    'TKD_FO_Multi_Seller::sellers' => array('public', 'fd66fdbed42994d06e4d15da17f9ff08b6ce5174bba5c7e1855b9665a0eec65b'),
     'TKD_FO_Multi_Seller::sign' => array('private', '44fa7b7c95d8b58e28159121dad4f6dc27d5f24f28f8b876e595a9fc4297370a'),
     'TKD_FO_Multi_Seller::with_delivery' => array('public', '98872e5f4cec68db402b815e204b69d323d83597721cca584731f57a0f126e93'),
     'TKD_FO_Order_Lifecycle::active' => array('public', '110ba8f1a2387d4781a9cdb3d943a494c73a7468360103c982cef15cb011dea2'),
@@ -147,7 +151,7 @@ return array(
     'TKD_FO_Order_Lifecycle::write' => array('public', '31085248d9ab3ff5eab00e13107a499dfbc4e9988c95a9e2e67e0e40da4397f2'),
     'TKD_FO_Orders::append_reservation_log' => array('private', '376872a18f208cb16409fc1d4af54eb95a14b788fb21bfec9ce8aa43a627defe'),
     'TKD_FO_Orders::claim_responsibility' => array('public', '0bd47897bb6e822ad9375fa34a7b33c7aa2906e164261fa7139ff744a798613f'),
-    'TKD_FO_Orders::claim_responsibility_locked' => array('private', '34872d16d0ac06355b7cb7ff90f842134cbe59ac8979cf3e46a796ab01d7677a'),
+    'TKD_FO_Orders::claim_responsibility_locked' => array('private', '6ef73dfcdc522f0e78898c38b625ddcb106fc11fd0af20986a85be773db7faac'),
     'TKD_FO_Orders::get_responsibility' => array('public', 'a0dc49a89d63100ccdc7c390bf46fbe54acd55b3126a65599a76818dea01d318'),
     'TKD_FO_Orders::handle_reservation_action' => array('public', 'e824f640f6d8d76dc93313b00335be1c4c31972d644f180a8a143c3a8289ccd4'),
     'TKD_FO_Orders::handle_reservation_action_locked' => array('private', '93fca0fbf94ed59e01b56e2015f61f655f3cfca65d19eba2ed869ff80ad4722e'),

@@ -32,10 +32,10 @@ final class TKD_Cloud_Document_Operations {
         $pins=self::$profile ?? require __DIR__.'/document-pins.php'; $fields=self::$field_profile ?? require __DIR__.'/document-field-pins.php'; $cache=array(); $checked=array();
         foreach ($pins as $key=>$spec) {
             list($class,$name)=explode('::',$key);
-            if ($op==='delivery.pdf' && !in_array($class,array('TKD_FO_Invoices','TKD_FO_Deliveries','TKD_FO_Orders','TKD_FO_Multi_Seller','TKD_FO_Order_Lifecycle'),true)) { continue; }
-            if ($op==='reservation.extend' && !in_array($class,array('TKD_FO_Orders','TKD_FO_Order_Lifecycle'),true)) { continue; }
+            if ($op==='delivery.pdf' && !in_array($class,array('TKD_FO_Invoices','TKD_FO_Deliveries','TKD_FO_Orders','TKD_FO_Multi_Seller','TKD_FO_Order_Lifecycle','TKD_Returning_Customer_20261114'),true)) { continue; }
+            if ($op==='reservation.extend' && !in_array($class,array('TKD_FO_Orders','TKD_FO_Order_Lifecycle','TKD_Returning_Customer_20261114'),true)) { continue; }
             if ($op!=='reservation.extend' && $name==='handle_reservation_action_locked') { continue; }
-            if (strpos($op,'invoice.')===0 && !in_array($class,array('TKD_FO_Invoices','TKD_FO_Orders','TKD_FO_Order_Lifecycle','TKD_FO_Multi_Seller'),true)) { continue; }
+            if (strpos($op,'invoice.')===0 && !in_array($class,array('TKD_FO_Invoices','TKD_FO_Orders','TKD_FO_Order_Lifecycle','TKD_FO_Multi_Seller','TKD_Returning_Customer_20261114'),true)) { continue; }
             if (!class_exists($class,false)) { return array('verified'=>false,'reason'=>'native_missing','method'=>$key); }
             $ref=self::$reflection_cache[$class]??(self::$reflection_cache[$class]=new ReflectionClass($class)); if (!$ref->hasMethod($name)) { return array('verified'=>false,'reason'=>'native_missing','method'=>$key); }
             $m=$ref->getMethod($name); $file=$m->getFileName();

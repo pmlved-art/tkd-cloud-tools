@@ -47,7 +47,7 @@ def _request(method, path, payload=None):
         return {'result': 'managed_proxy_required'}
     try:
         opener = build_opener(ProxyHandler(), NoRedirect(), HTTPSHandler(context=ssl.create_default_context()))
-        headers = {'Accept': 'application/json', 'Authorization': auth, 'User-Agent': 'TKD-Cloud-Operations/0.4.0'}
+        headers = {'Accept': 'application/json', 'Authorization': auth, 'User-Agent': 'TKD-Cloud-Operations/0.4.1'}
         body = None
         if method == 'POST':
             body = json.dumps(payload, ensure_ascii=False, separators=(',', ':'), allow_nan=False).encode()
@@ -135,10 +135,10 @@ def capabilities():
     if r.get('result') != 'received':
         return r
     d = r['data']
-    if set(d) != {'bridge_version', 'operations', 'manual_channels', 'preview_is_acceptance'} or d['bridge_version'] not in ('0.3.0', '0.3.1', '0.4.0') or d['preview_is_acceptance'] is not False or not isinstance(d['operations'], dict):
+    if set(d) != {'bridge_version', 'operations', 'manual_channels', 'preview_is_acceptance'} or d['bridge_version'] not in ('0.3.0', '0.3.1', '0.4.0', '0.4.1') or d['preview_is_acceptance'] is not False or not isinstance(d['operations'], dict):
         return {'result': 'schema_mismatch'}
     supported = ({'status.change', 'payment.add_manual'} | DOCUMENT_OPERATIONS)
-    if d['bridge_version'] != '0.4.0':
+    if d['bridge_version'] not in ('0.4.0', '0.4.1'):
         supported -= DOCUMENT_OPERATIONS
     unsupported = {'deferred_payment', 'items.edit', 'invoice.create', 'reservation.change', 'shipment.issue', 'stock.change', 'payment.attest_bank', 'payment.attribute_legacy', 'payment.tov'}
     unsupported -= supported
@@ -159,7 +159,7 @@ def capabilities():
         c = v['contracts']
         if not isinstance(c, dict) or not {'verified', 'reason'} <= set(c) or not set(c) <= {'verified', 'reason', 'method', 'expected_sha256', 'actual_sha256'} or type(c['verified']) is not bool or not isinstance(c['reason'], str) or c['reason'] not in allowed_reasons:
             return {'result': 'schema_mismatch'}
-        if 'method' in c and (not isinstance(c['method'], str) or not re.fullmatch(r'TKD_(?:FO_|Sales_|Warehouse_|NP_)[A-Za-z0-9_]{1,80}(?:::[A-Za-z0-9_]{1,100})?', c['method'])):
+        if 'method' in c and (not isinstance(c['method'], str) or not re.fullmatch(r'TKD_(?:(?:FO_|Sales_|Warehouse_|NP_)[A-Za-z0-9_]{1,80}|Returning_Customer_20261114)(?:::[A-Za-z0-9_]{1,100})?', c['method'])):
             return {'result': 'schema_mismatch'}
         if any(not isinstance(c[k], str) or not re.fullmatch('[a-f0-9]{64}', c[k]) for k in ('expected_sha256', 'actual_sha256') if k in c):
             return {'result': 'schema_mismatch'}
@@ -175,7 +175,7 @@ def snapshot(number):
         return r
     d = r['data']
     expected = {'bridge_version', 'schema_version', 'order_id', 'number', 'status', 'revision', 'revision_scope', 'native_edit_post', 'editor_locked', 'operations', 'preview_is_acceptance'}
-    if set(d) != expected or d['bridge_version'] not in ('0.3.0', '0.3.1', '0.4.0') or d['schema_version'] != 'tkd-operation-snapshot-v1-candidate' or d['number'] != number or type(d['order_id']) is not int or d['order_id'] < 1 or not isinstance(d['revision'], str) or not re.fullmatch('[a-f0-9]{64}', d['revision']) or d['revision_scope'] != 'native-baseline-and-fixed-stored-state' or type(d['editor_locked']) is not bool or type(d['native_edit_post']) is not bool or d['preview_is_acceptance'] is not False:
+    if set(d) != expected or d['bridge_version'] not in ('0.3.0', '0.3.1', '0.4.0', '0.4.1') or d['schema_version'] != 'tkd-operation-snapshot-v1-candidate' or d['number'] != number or type(d['order_id']) is not int or d['order_id'] < 1 or not isinstance(d['revision'], str) or not re.fullmatch('[a-f0-9]{64}', d['revision']) or d['revision_scope'] != 'native-baseline-and-fixed-stored-state' or type(d['editor_locked']) is not bool or type(d['native_edit_post']) is not bool or d['preview_is_acceptance'] is not False:
         return {'result': 'schema_mismatch'}
     return {'result': 'snapshot_verified', 'http_status': 200, 'order_id': d['order_id'], 'revision': d['revision'], 'native_edit_post': d['native_edit_post'], 'editor_locked': d['editor_locked'], 'preview_is_acceptance': False}
 
@@ -221,7 +221,7 @@ def document_snapshot(number, operation, payload, include_data=False):
         return r
     d = r['data']
     keys = {'office_revision','documents','bridge_version','schema_version','order_id','revision','operation','native_edit_post','editor_locked','preview_is_acceptance'}
-    if set(d) != keys or d['bridge_version'] != '0.4.0' or d['schema_version'] != 'tkd-document-operation-snapshot-v1-candidate' or d['operation'] != operation or type(d['order_id']) is not int or d['order_id'] < 1 or not isinstance(d['revision'], str) or not re.fullmatch('[a-f0-9]{64}', d['revision']) or type(d['native_edit_post']) is not bool or type(d['editor_locked']) is not bool or d['preview_is_acceptance'] is not False:
+    if set(d) != keys or d['bridge_version'] not in ('0.4.0', '0.4.1') or d['schema_version'] != 'tkd-document-operation-snapshot-v1-candidate' or d['operation'] != operation or type(d['order_id']) is not int or d['order_id'] < 1 or not isinstance(d['revision'], str) or not re.fullmatch('[a-f0-9]{64}', d['revision']) or type(d['native_edit_post']) is not bool or type(d['editor_locked']) is not bool or d['preview_is_acceptance'] is not False:
         return {'result': 'schema_mismatch'}
     office=d['office_revision']
     if office is not None and (not isinstance(office,str) or not re.fullmatch('[a-f0-9]{64}',office)) or operation=='delivery.save' and office is None:

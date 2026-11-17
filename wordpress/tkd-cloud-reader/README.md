@@ -1,4 +1,4 @@
-# TKD Cloud Reader 0.4.0
+# TKD Cloud Reader 0.4.1
 
 Захищене підключення до чинної бази ТКД. HTTPS і окремий WordPress
 Application Password користувача tkd-cloud залишаються без змін.
@@ -51,3 +51,20 @@ Application Password користувача tkd-cloud залишаються б�
 
 ZIP містить лише production PHP і цей README. Тести, клієнт, докази review
 та build script залишаються у приватному репозиторії; секретів у ZIP немає.
+
+## Сумісність 0.4.1 (кандидат для незалежного review)
+
+Два pins оновлено за byte-exact source, SHA якого збігаються з live:
+`Multi_Seller::sellers` і `Orders::claim_responsibility_locked`. Штатний список
+продавців тепер не містить `vat`; цією версією дані продавців не змінюються.
+Чотири залежності `TKD_Returning_Customer_20261114` обов’язково перевіряються
+для документів, резерву й PDF. Їхні source є кандидатами: live збіг ще не
+підтверджений. Невідповідність надалі блокує виконання; старі status/payment
+не залежать від нових pins.
+
+Точні native bodies у синтетичних тестах підтверджують: `REST_REQUEST`
+зупиняє claim до accept, відповідальний та pending acceptance незмінні.
+Окремий accept не дозволяє технічному користувачу прийняти чуже замовлення.
+Немає impersonation або нових системних прав. Перевірка live після установки
+має бути GET-only до узгодження всіх pins. Новий API усіх mismatch у цьому
+патчі не додається: diagnostics, як раніше, повертає першу відмову.

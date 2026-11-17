@@ -1,0 +1,40 @@
+{
+  "version": "0.4.1",
+  "source_review_complete": false,
+  "base_source_commit": "fc552056391c5a664abd598746b974c8c3792010",
+  "evidence_commit": "41c9248",
+  "independent_review": "Pending; installer intentionally blocked until reviewer approval",
+  "local_tests": {
+    "php": [
+      "8.4"
+    ],
+    "gateway": 163,
+    "native_invoice": 15,
+    "read": 191,
+    "document_projection": 24,
+    "reservation": 24,
+    "shared_creation_lock": 16,
+    "pdf_boundaries": 14,
+    "returning_ownership": 50,
+    "python": 43
+  },
+  "live_new_dependency_pins_verified": false,
+  "production_business_mutations": false,
+  "production_files": {
+    "tkd-cloud-reader/tkd-cloud-reader.php": "aee23d6de2a862fff82177fbcb840dae37747039063a096f4f8d3538d7db0f7f",
+    "tkd-cloud-reader/read-extensions.php": "e568bcedb86812638212e7bc67887ccb75ab928414ff7edf19582df6de004829",
+    "tkd-cloud-reader/operations.php": "28b2f7c35941d4bdf4421e130fd5e0d258618dae6eb9fa683bb52ff9fd6ec259",
+    "tkd-cloud-reader/operator-role.php": "5c3c09b76f7dc062f26f3c533c2a0d9bc8ce22cb6ccd34d10fce29dd4e996953",
+    "tkd-cloud-reader/native-contracts.php": "6494a67bdc2ba9d8e4f5da61e8914aadf4bfc328c8d44279bdbc488337e68ba2",
+    "tkd-cloud-reader/document-contracts.php": "c633a5ad8af4127664e41528da2b139e15acf78f2422abf1f0456e21d0ca0885",
+    "tkd-cloud-reader/reservation-contracts.php": "b0426a71ac7e02e4243291e3becda9a82751b3cda857860768b2c902a4d02e4b",
+    "tkd-cloud-reader/document-operations.php": "000611053a901535e0560781dbd4696b39b343db1be504c69eafda92442bf051",
+    "tkd-cloud-reader/document-pdf.php": "d7de32962f9873e2bb2833d5b300973a8623c9ba7c4fadcf162ae45d760e3716",
+    "tkd-cloud-reader/document-pins.php": "9bc63f8e501e9d2caa648f9b4aac871dc958a7d882b4e67c303e5d013e8a1d8b",
+    "tkd-cloud-reader/document-field-pins.php": "a1abc984de0546a1c23954f3720860fef3bfaa0f77c3a71f269261138b44ed08",
+    "tkd-cloud-reader/document-state-keys.php": "6c2bae8a6520416c4ebd6d137495eabe215bb648370a87c1732aeb92c96c4bde",
+    "tkd-cloud-reader/delivery-creation-lock.php": "8528ba6aeb917a0b88f28a870ccb32e5bc056b5cb95ab343c1022ca4fc16bc26",
+    "tkd-cloud-reader/uninstall.php": "7efd25200254542d00c457d32f4651ead8c7da9350d089ca4ccb04a4bb224a00",
+    "tkd-cloud-reader/README.md": "358a24086e084d2366c4d346bee617bd1a1fea46c0e4aa08b24eeeedfcfcaef2"
+  }
+}

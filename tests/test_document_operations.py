@@ -19,7 +19,7 @@ class DocumentOperationsTests(unittest.TestCase):
         self.assertFalse(op._intent_ok(self.intent('invoice.issue',{'invoice_id':20,'number':'SYNTH','date':'2026-02-30'})))
 
     def test_get_document_snapshot_projection(self):
-        data={'office_revision':None,'documents':[],'bridge_version':'0.4.0','schema_version':'tkd-document-operation-snapshot-v1-candidate','order_id':12,'revision':'a'*64,'operation':'reservation.extend','native_edit_post':True,'editor_locked':False,'preview_is_acceptance':False}
+        data={'office_revision':None,'documents':[],'bridge_version':'0.4.1','schema_version':'tkd-document-operation-snapshot-v1-candidate','order_id':12,'revision':'a'*64,'operation':'reservation.extend','native_edit_post':True,'editor_locked':False,'preview_is_acceptance':False}
         with patch.object(op,'_request',return_value={'result':'received','data':data}) as request:
             result=op.document_snapshot('TKD-SYNTHETIC','reservation.extend',{'hours':48})
             self.assertEqual(result['result'],'document_snapshot_verified')
@@ -70,3 +70,18 @@ class DocumentOperationsTests(unittest.TestCase):
         self.assertTrue(op._outcome(outcome,intent['operation_id']))
         outcome['payment_saved']=True
         self.assertFalse(op._outcome(outcome,intent['operation_id']))
+
+    def test_patch_capabilities_returning_drift_is_redacted_and_validated(self):
+        supported = {'status.change', 'payment.add_manual'} | op.DOCUMENT_OPERATIONS
+        unsupported = {'deferred_payment','items.edit','invoice.create','reservation.change','stock.change','payment.attest_bank','payment.attribute_legacy','payment.tov'}
+        operations = {name: {'implemented': True, 'actor_capable': True, 'contracts': {'verified':True,'reason':'matched'}} for name in supported}
+        operations.update({name: {'implemented':False,'reason':'unsupported'} for name in unsupported})
+        report = {'verified':False,'reason':'native_drift','method':'TKD_Returning_Customer_20261114::accept','expected_sha256':'a'*64,'actual_sha256':'b'*64}
+        operations['invoice.draft']['contracts'] = report
+        data = {'bridge_version':'0.4.1','operations':operations,'manual_channels':['pumb','privatbank','raiffeisen','bank_emeo'],'preview_is_acceptance':False}
+        with patch('scripts.operations._request',return_value={'result':'received','data':data}):
+            result = op.capabilities()
+            self.assertEqual(result['result'],'capabilities_verified')
+            self.assertEqual(result['operations']['invoice.draft']['contracts'],report)
+            report['method']='TKD_Returning_Arbitrary::accept'
+            self.assertEqual(op.capabilities()['result'],'schema_mismatch')

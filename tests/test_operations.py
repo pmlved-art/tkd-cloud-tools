@@ -112,7 +112,7 @@ class OperationClientTests(unittest.TestCase):
                 self.assertEqual(r['result'],'schema_mismatch');self.assertNotIn('SYNTHETIC_PERSON',json.dumps(r))
 
     def test_snapshot_safe_revision_only(self):
-        data={'bridge_version':'0.3.0','schema_version':'tkd-operation-snapshot-v1-candidate','order_id':12,'number':'TKD-SYNTHETIC','status':'new','revision':'a'*64,'revision_scope':'native-baseline-and-fixed-stored-state','native_edit_post':True,'editor_locked':False,'operations':{},'preview_is_acceptance':False}
+        data={'bridge_version':'0.4.1','schema_version':'tkd-operation-snapshot-v1-candidate','order_id':12,'number':'TKD-SYNTHETIC','status':'new','revision':'a'*64,'revision_scope':'native-baseline-and-fixed-stored-state','native_edit_post':True,'editor_locked':False,'operations':{},'preview_is_acceptance':False}
         with patch('scripts.operations._request',return_value={'result':'received','data':data}):
             r=ops.snapshot('TKD-SYNTHETIC');self.assertEqual(r['result'],'snapshot_verified');self.assertNotIn('number',r);self.assertNotIn('status',r);self.assertFalse(r['preview_is_acceptance'])
 
