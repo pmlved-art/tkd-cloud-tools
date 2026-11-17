@@ -1,9 +1,9 @@
 {
   "version": "0.4.4",
-  "source_review_complete": false,
+  "source_review_complete": true,
   "base_source_commit": "24266701f4fc5400f0c5e1a77c77c9cf50c7d261",
   "evidence_commit": "13fd25e",
-  "independent_review": "Pending; installer blocked",
+  "independent_review": "Reviewed implementation 54f1518b8c72e31b03065ec444cc944510fdfdb0: fixed bounded metadata-only inventory, authenticated GET/no-store, no native invocation, guards unchanged; byte-exact production hashes checked locally. Live installation remains pending.",
   "local_tests": {
     "php": [
       "8.4"
@@ -54,5 +54,20 @@
     "tkd-cloud-reader/delivery-creation-lock.php": "8528ba6aeb917a0b88f28a870ccb32e5bc056b5cb95ab343c1022ca4fc16bc26",
     "tkd-cloud-reader/uninstall.php": "7efd25200254542d00c457d32f4651ead8c7da9350d089ca4ccb04a4bb224a00",
     "tkd-cloud-reader/README.md": "7caf8c7f20c18876f23d1ec2c9480772a71be91158dabba25179aa3312471f67"
+  },
+  "independent_tests": {
+    "php": [
+      "7.4",
+      "8.4"
+    ],
+    "source_diagnostics": 15,
+    "reader_and_diagnostics_auth": 75,
+    "fiscal_evidence_pins": 21,
+    "gateway": 72,
+    "document_operations": 91,
+    "python": 46,
+    "exact_native_fiscal_synthetic": 36,
+    "network_disabled": true,
+    "production_writes": false
   }
 }
