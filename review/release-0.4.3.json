@@ -1,9 +1,9 @@
 {
   "version": "0.4.3",
-  "source_review_complete": false,
+  "source_review_complete": true,
   "base_source_commit": "6009c45b5e8df981901d39aa17b657ad08c87c3f",
   "evidence_commit": "12dcca4",
-  "independent_review": "Pending; installer blocked until independent review",
+  "independent_review": "Exact local full Payments sources match both previous and live file SHA256. Full diff reviewed: display label and new admin-only refund reconciliation helper; all17 existing pinned method hashes unchanged by AST. Adapter production difference is exactly one file hash, version and README. Eight commands, role permissions, document pins, mutation code and authentication unchanged. Live0.4.3 verification pending installation.",
   "local_tests": {
     "php": [
       "8.4"
@@ -40,5 +40,18 @@
     "tkd-cloud-reader/delivery-creation-lock.php": "8528ba6aeb917a0b88f28a870ccb32e5bc056b5cb95ab343c1022ca4fc16bc26",
     "tkd-cloud-reader/uninstall.php": "7efd25200254542d00c457d32f4651ead8c7da9350d089ca4ccb04a4bb224a00",
     "tkd-cloud-reader/README.md": "c0f17568c89296fcd15012f200a223af3eba0fbd2a93088bae390e8f9ea280c0"
+  },
+  "reviewed_code_commit": "ada4452ecd6214904549760bab2d5083b97143c4",
+  "independent_local_tests": {
+    "php": [
+      "7.4",
+      "8.4"
+    ],
+    "payments_pin_command_role": 38,
+    "document_gateway_aggregate": 163,
+    "np_status": 116,
+    "release_scanner": 90,
+    "python": 43,
+    "production_mutations": false
   }
 }
