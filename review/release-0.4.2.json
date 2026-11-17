@@ -18,7 +18,8 @@
     "reservation": 24,
     "shared_creation_lock": 16,
     "pdf_boundaries": 14,
-    "python": 43
+    "python": 43,
+    "release_scanner_dependencies": 90
   },
   "live_new_dependency_pins_verified": false,
   "production_business_mutations": false,
@@ -32,11 +33,12 @@
     "tkd-cloud-reader/reservation-contracts.php": "b0426a71ac7e02e4243291e3becda9a82751b3cda857860768b2c902a4d02e4b",
     "tkd-cloud-reader/document-operations.php": "000611053a901535e0560781dbd4696b39b343db1be504c69eafda92442bf051",
     "tkd-cloud-reader/document-pdf.php": "d7de32962f9873e2bb2833d5b300973a8623c9ba7c4fadcf162ae45d760e3716",
-    "tkd-cloud-reader/document-pins.php": "137809767064b71b2f95ead87bd3f030390d73ddfc1ee6184ab562c51e1adf0b",
+    "tkd-cloud-reader/document-pins.php": "a64e721c504f608f2ac276bc13391e767ccf77e7f91d60b7e61fd4c7a3abb0d9",
     "tkd-cloud-reader/document-field-pins.php": "a1abc984de0546a1c23954f3720860fef3bfaa0f77c3a71f269261138b44ed08",
     "tkd-cloud-reader/document-state-keys.php": "6c2bae8a6520416c4ebd6d137495eabe215bb648370a87c1732aeb92c96c4bde",
     "tkd-cloud-reader/delivery-creation-lock.php": "8528ba6aeb917a0b88f28a870ccb32e5bc056b5cb95ab343c1022ca4fc16bc26",
     "tkd-cloud-reader/uninstall.php": "7efd25200254542d00c457d32f4651ead8c7da9350d089ca4ccb04a4bb224a00",
-    "tkd-cloud-reader/README.md": "af41df8645f3da02cf60d2b640de53a34f96f699e4fa8aa857c4ca7d1a465cce"
-  }
+    "tkd-cloud-reader/README.md": "40aa4795e3a6ee40d25a653dae76bb7c29dd90bd3c8b2f6eedb0a634504dc813"
+  },
+  "additional_evidence_commit": "cec6a526"
 }

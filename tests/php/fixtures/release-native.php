@@ -1,0 +1,255 @@
+<?php
+// Exact deployment-evidence bodies, CLI synthetic adapters only.
+if(PHP_SAPI!=='cli'){exit;}
+class TKD_Warehouse_Scanner {
+	private static function serials( $value ) {
+		$out = array();
+		foreach ( preg_split( '/[\r\n,;]+/u', (string) $value ) as $serial ) {
+			$serial = trim( $serial );
+			if ( '' !== $serial ) { $out[] = $serial; }
+		}
+		return $out;
+	}
+	public static function quantity_only_items( $items ) {
+		if ( ! is_array( $items ) || ! $items ) { return false; }
+		foreach ( $items as $item ) {
+			if ( ! is_array( $item ) || strtoupper( trim( (string) ( $item['sku'] ?? '' ) ) ) !== 'WM100UG1'
+				|| ! is_numeric( $item['quantity'] ?? null ) || ! is_finite( (float) $item['quantity'] )
+				|| (float) $item['quantity'] <= 0 || floor( (float) $item['quantity'] ) !== (float) $item['quantity']
+				|| self::serials( $item['serial_numbers'] ?? '' ) ) { return false; }
+		}
+		return true;
+	}
+}
+class TKD_Sales_Release {
+ use Release_Fixture_Helpers;
+	private static function read_snapshot( $id, $check_control = true, $check_fiscal = true, $reconcile = false, $plan = null ) {
+		$id = self::id( $id );
+		if ( ! self::allowed( $id, 'tkd_delivery' ) ) { return self::error( 'Немає доступу до чинної видаткової.' ); }
+		wp_cache_delete( $id, 'post_meta' );
+		$order = self::id( get_post_meta( $id, '_tkd_fo_delivery_order_id', true ) ); $invoice = self::id( get_post_meta( $id, '_tkd_fo_delivery_invoice_id', true ) );
+		if ( ! self::allowed( $order, 'tkd_order' ) || ! self::allowed( $invoice, 'tkd_invoice' ) ) { return self::error( 'Замовлення або рахунок недоступні.' ); }
+		wp_cache_delete( $order, 'post_meta' ); wp_cache_delete( $invoice, 'post_meta' );
+		if ( self::id( get_post_meta( $invoice, '_tkd_fo_order_id', true ) ) !== $order ) { return self::error( 'Зв’язок документів потребує звірки.' ); }
+		$b = array(); $facts = array();
+		$order_state = get_post_meta( $order, '_tkd_status', true );
+		if ( in_array( $order_state, array( 'cancelled', 'cancelled_repeat', 'cancelled_irrelevant', 'unavailable' ), true ) ) { $b[] = 'Замовлення скасоване або недоступне.'; }
+		$o = self::meta( $order, array( '_tkd_np_delivery_method', '_tkd_np_payment_type', '_tkd_np_cod_amount', '_tkd_np_cod_confirmed', '_tkd_np_cod_basis', '_tkd_np_document_number', '_tkd_np_document_ref', '_tkd_np_sender_profile_key', '_tkd_np_sender_tax_id', '_tkd_np_sender_ref_snapshot', '_tkd_np_last_name', '_tkd_np_first_name', '_tkd_np_middle_name', '_tkd_np_phone', '_tkd_np_city_ref', '_tkd_np_settlement_ref', '_tkd_np_street_ref', '_tkd_np_building', '_tkd_np_flat', '_tkd_np_warehouse_ref', '_tkd_np_address', '_tkd_fo_payments', '_tkd_prepayment_received', '_tkd_confirmed_amount', '_tkd_client_total', '_tkd_fo_invoice_id', '_tkd_fo_invoice_ids', '_tkd_fo_checkout_seller_key', '_tkd_fo_invoice_split_done', '_tkd_customer_phone', '_tkd_customer_email', '_tkd_contact_channel', '_tkd_payment_method', '_tkd_liqpay_last_status', '_tkd_payparts_payment_state', '_pml_cashalot_receipt', '_pml_cashalot_return', '_tkd_fo_payparts_receipt_required' ) );
+		$o += self::meta( $order, array( '_tkd_order_number', '_tkd_telegram_username', '_tkd_order_total', '_tkd_fo_agreed_total' ) );
+		$mode = $o['_tkd_np_delivery_method'] === 'pickup' ? 'pickup' : ( in_array( $o['_tkd_np_delivery_method'], array( 'nova_warehouse', 'nova_locker', 'nova_courier' ), true ) ? 'np' : '' );
+		if ( ! $mode ) { $b[] = 'Виберіть і збережіть конкретний спосіб доставки.'; }
+		$dispatch_class = $mode === 'np' ? 'TKD_NP_Dispatch' : 'TKD_FO_Dispatch';
+		if ( ! is_callable( array( $dispatch_class, 'release_preflight_supported' ) ) || call_user_func( array( $dispatch_class, 'release_preflight_supported' ) ) !== 2 ) { $b[] = 'Модуль передачі потребує оновлення для об’єднаної дії.'; }
+		$d = self::meta( $id, array( '_tkd_fo_delivery_number', '_tkd_fo_delivery_date', '_tkd_fo_delivery_seller_key', '_tkd_fo_delivery_items', '_tkd_fo_delivery_place', '_tkd_fo_delivery_receiver', '_tkd_fo_delivery_payer', '_tkd_fo_delivery_contract', '_tkd_fo_delivery_application' ) );
+		$status = get_post_meta( $id, '_tkd_fo_delivery_status', true ); $task = get_post_meta( $id, '_tkd_ws_task', true );
+		$record_key = $mode === 'np' ? '_tkd_np_dispatch_v1' : '_tkd_fo_dispatch_v1'; $record = get_post_meta( $id, $record_key, true );
+		$stored_preparation = array( $task, $record );
+		if ( is_array( $plan ) ) { $task = $plan['scanner']['task']; $record = $plan[$mode === 'pickup' ? 'pickup' : 'np']['record']; }
+		$intent = get_post_meta( $id, self::INTENT, true );
+		if ( $intent !== '' && ( ! is_array( $intent ) || ( $intent['version'] ?? null ) !== 1 || ( $intent['state'] ?? '' ) !== 'committed' ) ) { $b[] = 'Попереднє проведення має невизначений результат. Повторне списання заблоковано; потрібна звірка журналу складу.'; }
+		if ( ! in_array( $status, array( 'draft', 'issued' ), true ) ) { $b[] = 'Видаткова скасована або має невідомий статус.'; }
+		if ( ! is_array( $task ) || ( $task['state'] ?? '' ) !== 'ready' ) { $b[] = 'Склад ще не підтвердив завершення комплектації.'; }
+		if ( ! $reconcile && ( ! is_array( $task ) || ( $task['dispatch_required'] ?? null ) !== 1 || ( $task['dispatch_mode'] ?? 'pickup' ) !== $mode || ! is_array( $record ) || ( $record['version'] ?? null ) !== 1 || ( $record['mode'] ?? '' ) !== $mode || self::id( $record['order'] ?? 0 ) !== $order ) ) {
+			$b[] = 'Немає чинного завдання з контролем передачі. Історичні документи автоматично не включаються.';
+		}
+		$state = is_array( $record ) ? ( $record['state'] ?? '' ) : '';
+		if ( ! $reconcile && $state !== 'preparing' ) { $b[] = $state === 'awaiting_handover' ? 'Уже підготовлено. Далі — фактична передача, повторне проведення не потрібне.' : ( $state === 'handed_over' ? 'Фактичну передачу вже зафіксовано.' : 'Стан контролю передачі потребує звірки.' ); }
+		if ( $reconcile && $mode !== 'np' ) { $b[] = 'Звірка вже відправленої ЕН доступна лише для Нової пошти.'; }
+		if ( ! is_callable( array( 'TKD_FO_Deliveries', 'post_saved_for_handover' ) ) || ! is_callable( array( 'TKD_Warehouse_Scanner', 'begin_office_save' ) ) ) { $b[] = 'Оновлений модуль проведення або складського контролю недоступний.'; }
+		if ( $status === 'issued' && ! is_array( $intent ) ) { $b[] = 'Проведений документ не належить цій об’єднаній операції. Використайте його окремий контроль передачі.'; }
+		$invoice_ids = self::query( 'tkd_invoice', '_tkd_fo_order_id', $order ); $invoice_rows = array(); $seller_totals = array(); $invoice_sum = 0;
+		if ( $invoice_ids === null ) { $b[] = 'Не вдалося отримати повний пакет рахунків.'; $invoice_ids = array(); }
+		$cached = $o['_tkd_fo_invoice_ids']; if ( $cached !== '' && ! is_array( $cached ) ) { $b[] = 'Зв’язки рахунків пошкоджені.'; }
+		$cached = is_array( $cached ) ? $cached : array(); if ( $o['_tkd_fo_invoice_id'] !== '' ) { $cached[] = $o['_tkd_fo_invoice_id']; }
+		foreach ( $cached as $other ) { if ( ! self::id( $other ) || ! in_array( (int) $other, $invoice_ids, true ) ) { $b[] = 'Є неузгоджений зв’язок рахунку; потрібна звірка.'; } }
+		$recipient = array( 'no_vat' => 'fop_iy', 'fop_pm' => 'fop_pm', 'fop_rv' => 'fop_rv', 'fop_tp' => 'fop_tp', 'fop_md' => 'fop_md', 'fop_eo' => 'fop_eo', 'vat' => 'ti_group' );
+		foreach ( $invoice_ids as $other ) {
+			wp_cache_delete( $other, 'post_meta' );
+			$r = self::meta( $other, array( '_tkd_fo_invoice_status', '_tkd_fo_seller_key', '_tkd_fo_invoice_total', '_tkd_fo_invoice_items', '_tkd_fo_invoice_discount', '_tkd_fo_invoice_number', '_tkd_fo_invoice_date' ) );
+			$r += self::meta( $other, array( '_tkd_fo_invoice_items_subtotal', '_tkd_fo_invoice_subtotal', '_tkd_fo_invoice_vat' ) );
+			$r += self::meta( $other, array( '_tkd_fo_order_id' ) );
+			$invoice_rows[$other] = $r; if ( $r['_tkd_fo_invoice_status'] === 'cancelled' ) { continue; }
+			$total = self::minor( $r['_tkd_fo_invoice_total'] ); $seller = $r['_tkd_fo_seller_key'];
+			if ( ! self::allowed( $other, 'tkd_invoice' ) || self::id( $r['_tkd_fo_order_id'] ) !== $order || ! is_string( $seller ) || ! isset( $recipient[$seller] ) || ! in_array( $r['_tkd_fo_invoice_status'], array( 'draft', 'issued', 'paid' ), true ) || $total === null || $total <= 0 || ! is_array( $r['_tkd_fo_invoice_items'] ) || ! $r['_tkd_fo_invoice_items'] ) { $b[] = 'Рахунки, суми або продавці потребують звірки.'; continue; }
+			if ( ! self::invoice_consistent( $r ) ) { $b[] = 'Збережені ціни, кількості, знижка й підсумки рахунку не узгоджені. Завершіть збереження або звірте рахунок.'; }
+			$seller_totals[$recipient[$seller]] = ( $seller_totals[$recipient[$seller]] ?? 0 ) + $total; $invoice_sum += $total;
+		}
+		$invoice_row = $invoice_rows[$invoice] ?? array(); $seller = $invoice_row['_tkd_fo_seller_key'] ?? '';
+		$seller = is_string( $seller ) ? $seller : '';
+		if ( ! isset( $recipient[$seller] ) || $d['_tkd_fo_delivery_seller_key'] !== $seller || ( $invoice_row['_tkd_fo_invoice_status'] ?? '' ) === 'cancelled' ) { $b[] = 'Продавець видаткової не відповідає чинному рахунку.'; }
+		$total = self::minor( $o['_tkd_confirmed_amount'] );
+		if ( $total === null && $o['_tkd_confirmed_amount'] !== '' ) { $b[] = 'Погоджена сума має некоректний формат.'; }
+		if ( $o['_tkd_confirmed_amount'] === '' || $total === 0 ) { $total = self::minor( $o['_tkd_client_total'] ); }
+		if ( $total === null || $total <= 0 || $invoice_sum !== $total ) { $b[] = 'Погоджена сума замовлення не збігається з повним пакетом рахунків.'; }
+		$paid = 0; $paid_sellers = array(); $seen = array(); $ledger = $o['_tkd_fo_payments'];
+		if ( $ledger === '' ) { $ledger = array(); }
+		if ( ! is_array( $ledger ) ) { $b[] = 'Журнал оплат пошкоджений.'; $ledger = array(); }
+		foreach ( $ledger as $row ) {
+			if ( ! is_array( $row ) || ! in_array( $row['status'] ?? '', array( 'active', 'void' ), true ) ) { $b[] = 'Невідомий стан запису оплати.'; continue; }
+			if ( $row['status'] === 'void' ) { continue; }
+			$amount = self::minor( $row['amount'] ?? null ); $to = $row['recipient_key'] ?? ''; $pid = $row['id'] ?? '';
+			if ( ! is_string( $pid ) || $pid === '' || isset( $seen[$pid] ) || $amount === null || $amount <= 0 || ! is_string( $to ) || ( ! isset( $seller_totals[$to] ) && ! ( is_callable( array( 'TKD_FO_Multi_Seller', 'delivery_terms' ) ) && TKD_FO_Multi_Seller::delivery_terms( $id ) && in_array( $to, array( 'fop_iy', 'fop_pm', 'fop_rv', 'fop_tp', 'fop_md' ), true ) ) ) ) { $b[] = 'Оплати повторні, неповні або не віднесені до продавця.'; continue; }
+			$seen[$pid] = true; $paid += $amount; $paid_sellers[$to] = ( $paid_sellers[$to] ?? 0 ) + $amount;
+		}
+		$legacy = $o['_tkd_prepayment_received'] === '' ? 0 : self::minor( $o['_tkd_prepayment_received'] );
+		if ( $legacy === null || $legacy > $paid ) { $b[] = 'Попередня оплата не повністю підтверджена журналом.'; }
+		$own_paid = isset( $recipient[$seller] ) && ( $paid_sellers[$recipient[$seller]] ?? 0 ) >= ( $seller_totals[$recipient[$seller]] ?? PHP_INT_MAX );
+		$fully_paid = $total > 0 && $paid >= $total && $own_paid;
+		$credit = is_callable( array( 'TKD_FO_Deferred_Payment', 'authorization' ) ) ? TKD_FO_Deferred_Payment::authorization( $order ) : null;
+		$deferred = is_array( $credit ) && $credit['terms']['seller'] === $seller && $credit['terms']['total_cents'] === $total && count( $seller_totals ) === 1;
+		$manager_bank = is_callable( array( 'TKD_Sales_Fiscal_Gate', 'manager_iban_terms' ) ) && TKD_Sales_Fiscal_Gate::manager_iban_terms( $order, $seller );
+		if ( is_callable( array( 'TKD_FO_Multi_Seller', 'delivery_terms' ) ) && TKD_FO_Multi_Seller::delivery_terms( $id ) ) { $own_to = $recipient[$seller]; $own_total = $seller_totals[$own_to] ?? 0; $own_received = $paid_sellers[$own_to] ?? 0; $facts[] = 'Окремо за цим ФОП: рахунки ' . self::money( $own_total ) . '; фактично отримано ' . self::money( $own_received ) . '; до сплати ' . self::money( max( 0, $own_total - $own_received ) ) . '. Оплати інших ФОП не зараховуються цьому продавцю.'; }
+		if ( $manager_bank && ! $fully_paid ) { $facts[] = 'Увага: оплата неповна. Відвантаження цієї партії — за рішенням менеджера; залишок на IBAN зберігається. Це не післяплата НП і не підтвердження отримання доплати.'; }
+		if ( $deferred ) { $o['_tkd_fo_deferred_payment_v1'] = $credit; $facts[] = 'Відтермінування прямої IBAN-оплати погоджене менеджером. Це не отримана оплата; борг зберігається.'; }
+		// Bank approval authorizes fulfillment, but is not a ledger payment or NP COD.
+		$mono_authorized = false;
+		$mono_raw = get_post_meta( $order, '_tkd_ti_mono_v1', true );
+		if ( $mono_raw !== '' ) {
+			$o['_tkd_ti_mono_v1'] = $mono_raw; // Freeze approval in all race/replay fingerprints.
+			try {
+				if ( ! is_callable( array( 'TKD_TI_Mono', 'delivery_proof' ) ) ) { throw new RuntimeException( 'Перевірка договору monobank недоступна.' ); }
+				$mono_proof = TKD_TI_Mono::delivery_proof( array( 'order' => $order, 'invoice' => $invoice, 'invoices' => $invoice_rows, 'seller' => $seller, 'total' => $total ) );
+				$mono_authorized = is_array( $mono_proof ) && in_array( $mono_proof['stage'] ?? '', array( 'approved_waiting_handover', 'active' ), true );
+				if ( ! $mono_authorized ) { throw new RuntimeException( 'Схвалення Покупки частинами monobank не підтверджене.' ); }
+				$facts[] = 'Покупка частинами monobank: договір схвалено. Відвантаження без післяплати за товар; схвалення не є зарахуванням грошей.';
+			} catch ( Throwable $error ) { $b[] = 'monobank: ' . $error->getMessage(); }
+		}
+		$cod = self::minor( $o['_tkd_np_cod_amount'] === '' ? 0 : $o['_tkd_np_cod_amount'] ); $remaining = max( 0, ( $total ?? 0 ) - $paid );
+		$settled_cod = $seller === 'fop_rv' && is_callable( array( 'TKD_RV_Cashalot', 'settled_cod_cents' ) ) ? TKD_RV_Cashalot::settled_cod_cents( $order ) : 0;
+        if($seller==='fop_pm'&&is_callable(array('PML_Release_Receipt','settled_cod_cents')))$settled_cod=PML_Release_Receipt::settled_cod_cents($order);
+        if($seller==='fop_tp'&&is_callable(array('TKD_TP_Cashalot','settled_cod_cents')))$settled_cod=TKD_TP_Cashalot::settled_cod_cents($order);
+        if($seller==='fop_md'&&is_callable(array('TKD_MD_Cashalot','settled_cod_cents')))$settled_cod=TKD_MD_Cashalot::settled_cod_cents($order);
+		if ( $settled_cod > 0 ) { $facts[] = 'Післяплату NovaPay вже отримано за первинною ЕН. Це не IBAN-передоплата; чинний чек зберігається без повторного створення.'; }
+		if ( $mode === 'pickup' ) {
+			if ( ! $fully_paid && ! $deferred && ! $manager_bank && ! $mono_authorized ) { $b[] = 'Для цього способу оплати потрібна звірка платіжного та фіскального маршруту. Прямий IBAN допускає видачу за рішенням менеджера без повної оплати.'; }
+			if ( ! is_callable( array( 'TKD_FO_Dispatch', 'execute' ) ) || ! is_callable( array( 'TKD_FO_Dispatch', 'posting_completion_enabled' ) ) || ! TKD_FO_Dispatch::posting_completion_enabled() ) { $b[] = 'Контроль самовивозу недоступний або вимкнений.'; }
+		} elseif ( $mode === 'np' ) {
+			if ( ! is_callable( array( 'TKD_NP_Dispatch', 'status' ) ) || ! is_callable( array( 'TKD_NP_Dispatch', 'enabled' ) ) || ! TKD_NP_Dispatch::enabled() ) { $b[] = 'Автоконтроль Нової пошти недоступний або вимкнений.'; }
+			elseif ( $check_control && ! $reconcile && $plan === null ) {
+				$np = TKD_NP_Dispatch::status( $id, true );
+				if ( ! is_array( $np ) || ( $np['enabled'] ?? false ) !== true || ! is_array( $np['blockers'] ?? null ) ) { $b[] = 'Контроль цієї ЕН не підтверджений.'; }
+				foreach ( is_array( $np['blockers'] ?? null ) ? $np['blockers'] : array() as $message ) { $b[] = is_string( $message ) && $message !== '' ? $message : 'Невідома відповідь контролю НП.'; }
+			}
+			if ( ( $fully_paid && ! $settled_cod ) || $deferred || $manager_bank || $mono_authorized ) { if ( $cod !== 0 || $o['_tkd_np_payment_type'] !== 'prepaid' ) { $b[] = 'Погоджено відвантаження без післяплати, але збережена ЕН має післяплату. Звірте її в НП; сайт не переписуватиме ЕН.'; } }
+			else {
+				$active_invoices = array_filter( $invoice_rows, static function( $r ) { return $r['_tkd_fo_invoice_status'] !== 'cancelled'; } );
+				$other_deliveries = self::query( 'tkd_delivery', '_tkd_fo_delivery_invoice_id', $invoice ); $live_deliveries = array();
+				foreach ( $other_deliveries ?? array() as $other ) { if ( get_post_meta( $other, '_tkd_fo_delivery_status', true ) !== 'cancelled' ) { $live_deliveries[] = $other; } }
+				$source_items = is_array( $invoice_row['_tkd_fo_invoice_items'] ?? null ) ? $invoice_row['_tkd_fo_invoice_items'] : array();
+				$full = is_array( $d['_tkd_fo_delivery_items'] ) && $source_items && count( $d['_tkd_fo_delivery_items'] ) === count( $source_items ); $indices = array();
+				foreach ( is_array( $d['_tkd_fo_delivery_items'] ) ? $d['_tkd_fo_delivery_items'] : array() as $line ) {
+					if ( ! is_array( $line ) || ! is_int( $line['source_index'] ?? null ) ) { $full = false; continue; }
+					$index = $line['source_index']; $source = $source_items[$index] ?? null;
+					if ( ! is_array( $source ) || isset( $indices[$index] ) || ( $line['sku'] ?? null ) !== ( $source['sku'] ?? null ) || ! is_numeric( $line['quantity'] ?? null ) || ! is_numeric( $source['quantity'] ?? null ) || (float) $line['quantity'] !== (float) $source['quantity'] ) { $full = false; } $indices[$index] = true;
+				}
+				if ( count( $active_invoices ) !== 1 || $other_deliveries === null || $live_deliveries !== array( $id ) || ! $full ) { $b[] = 'Часткова або розділена післяплата потребує окремої звірки прив’язки сум. Об’єднана дія її не вгадує.'; }
+				if ( ! in_array( $seller, $reconcile ? array( 'no_vat', 'fop_pm', 'fop_rv', 'fop_tp', 'fop_md' ) : array( 'fop_pm', 'fop_rv', 'fop_tp', 'fop_md' ), true ) || $o['_tkd_np_payment_type'] !== 'cod' || ! in_array( $o['_tkd_np_cod_confirmed'], array( '1', 1 ), true ) || $cod === null || $cod <= 0 || $cod !== $remaining + $settled_cod ) { $b[] = 'Післяплата ЕН не збігається з підтвердженим залишком правильного продавця. Звірте оплату й ЕН.'; }
+			}
+		}
+		$items = $d['_tkd_fo_delivery_items']; $serials = array(); $required = is_array( $task ) ? ( $task['required_source_indices'] ?? null ) : null; $sources = array();
+		$nonserial_only = is_array( $task ) && ( $task['manager_release_v1'] ?? false ) === true && is_array( $items ) && $items;
+		foreach ( is_array( $items ) ? $items : array() as $line ) { if ( ! is_array( $line ) || ! in_array( strtoupper( trim( (string) ( $line['sku'] ?? '' ) ) ), array( 'AWG3-CU-35-1M-180C', 'AWG4-CU-25-1M-180C', '1000598' ), true ) ) { $nonserial_only = false; } }
+		if ( is_array( $task ) && ( $task['quantity_only_v1'] ?? false ) === true && is_callable( array( 'TKD_Warehouse_Scanner', 'quantity_only_items' ) ) && TKD_Warehouse_Scanner::quantity_only_items( $items ) ) { $nonserial_only = true; }
+		if ( ! is_array( $items ) || ! $items || ! is_array( $required ) || ( ! $required && ! $nonserial_only ) ) { $b[] = 'Немає збережених товарів або переліку серійних позицій.'; }
+		foreach ( is_array( $items ) ? $items : array() as $line ) {
+			if ( ! is_array( $line ) || ! is_int( $line['source_index'] ?? null ) ) { $b[] = 'Некоректний рядок видаткової.'; continue; }
+			$index = $line['source_index'] ?? null; $qty = $line['quantity'] ?? null; $list = is_string( $line['serial_numbers'] ?? '' ) ? array_values( array_filter( array_map( 'trim', preg_split( '/[\r\n,;]+/', $line['serial_numbers'] ?? '' ) ), 'strlen' ) ) : array();
+			if ( ! is_int( $index ) || isset( $sources[$index] ) || ! is_numeric( $qty ) || ! is_finite( (float) $qty ) || $qty <= 0 ) { $b[] = 'Некоректний склад видаткової.'; } $sources[$index ?? -1] = true;
+			if ( in_array( $index, is_array( $required ) ? $required : array(), true ) && ( (is_callable(array('TKD_Warehouse_Scanner','serial_target')) ? TKD_Warehouse_Scanner::serial_target($line) : (float)$qty) != count($list) || ! $list ) ) { $b[] = 'Серійні номери ще не покривають усі потрібні одиниці.'; }
+			$serial_pattern = strtoupper( trim( (string) ( $line['sku'] ?? '' ) ) ) === 'SPI4862V100-500P' ? '/^GL-\d{10}-\d{5}-B\d{2}$/D' : '/^[0-9]{18}$/D';
+			foreach ( $list as $sn ) { if ( isset( $serials[$sn] ) || ! preg_match( $serial_pattern, $sn ) ) { $b[] = 'Повторний або некоректний серійний номер.'; } $serials[$sn] = true; }
+		}
+		foreach ( is_array( $required ) ? $required : array() as $index ) { if ( ! is_int( $index ) || ! isset( $sources[$index] ) ) { $b[] = 'Перелік серійних позицій не відповідає видатковій.'; } }
+		$seller_label = array( 'fop_pm' => 'ФОП Лисіков П.М.', 'no_vat' => 'ФОП Лисікова І.Ю.', 'fop_rv' => 'ФОП Ращупкіна В.В.', 'fop_tp' => 'ФОП Лисікова Т.П.', 'fop_md' => 'ФОП Михеда Д.О. (Даня)', 'fop_eo' => 'ФОП Ємельянов Є.О.', 'vat' => 'ТОВ «ТІ ГРУП»' )[$seller] ?? 'потребує звірки';
+		$facts[] = 'Замовлення ' . ( is_string( $o['_tkd_order_number'] ) && $o['_tkd_order_number'] !== '' ? $o['_tkd_order_number'] : '#' . $order ) . ' · продавець: ' . $seller_label;
+		foreach ( is_array( $items ) ? $items : array() as $line ) {
+			if ( is_array( $line ) && is_string( $line['name'] ?? null ) && is_numeric( $line['quantity'] ?? null ) && is_string( $line['unit'] ?? null ) ) { $facts[] = $line['name'] . ' — ' . $line['quantity'] . ' ' . $line['unit'] . '.'; }
+		}
+		$facts[] = $mode === 'pickup' ? 'Доставка: самовивіз — ЕН не потрібна.' : 'Доставка: Нова пошта · ЕН ' . ( is_string( $o['_tkd_np_document_number'] ) ? $o['_tkd_np_document_number'] : '' );
+		$facts[] = 'Підтверджено журналом: ' . self::money( $paid ) . '. Залишок замовлення: ' . self::money( $remaining ) . '.';
+		$facts[] = 'Серійних номерів у видатковій: ' . count( $serials ) . '. Унікальність серед інших видаткових повторно перевіряється перед проведенням.';
+		$stock_blockers = self::physical_stock_blockers( $items, $status ); $b = array_merge( $b, $stock_blockers );
+		$office = is_callable( array( 'TKD_Warehouse_Scanner', 'office_revision' ) ) ? TKD_Warehouse_Scanner::office_revision( $id ) : '';
+		$fiscal = $check_fiscal ? self::fiscal( $id ) : array( 'state' => 'internal_preflight', 'fingerprint' => '' );
+		if ( $check_fiscal && $fiscal['state'] === 'blocked' ) { $b[] = $fiscal['message']; }
+		if ( $reconcile && ! in_array( $fiscal['state'], array( 'ok', 'not_required' ), true ) ) { $b[] = 'Для вже відправленої посилки потрібен підтверджений наявний чек або підтверджена IBAN-оплата. Новий чек ця звірка не створює.'; }
+		// RegisterCheck may add only its verified receipt evidence. All sale facts stay frozen.
+		$material = $o; unset( $material['_pml_cashalot_receipt'] );
+		$basis_task = $reconcile && is_array( $record['reconciliation']['original_task'] ?? null ) ? $record['reconciliation']['original_task'] : $task;
+		$basis = array( $id, $order, $invoice, $material, $d, $invoice_rows, $basis_task );
+		$operation = array( $basis, $status, $order_state, $record, $intent, $office, get_current_user_id() );
+		if ( $plan !== null ) { $operation[] = array( $stored_preparation, $plan ); }
+		return array( 'id' => $id, 'order' => $order, 'invoice' => $invoice, 'mode' => $mode, 'status' => $status, 'state' => $state, 'number' => $d['_tkd_fo_delivery_number'], 'facts' => $facts,
+			'document_basis' => self::signature( array( $id, $order, $invoice, $o, $d, $invoice_rows, $status, $order_state, $intent, $fiscal['fingerprint'], get_current_user_id() ) ),
+			'blockers' => array_values( array_unique( $b ) ), 'office_revision' => $office, 'basis' => self::signature( $basis ), 'operation_basis' => self::signature( $operation ), 'fiscal' => $fiscal,
+			'revision' => self::signature( array( $operation, $o['_pml_cashalot_receipt'], $fiscal['fingerprint'], $stock_blockers ) ) );
+	}
+    private static function execute_unscoped( $id, $revision, $confirmed ) {
+		if ( ( $_SERVER['REQUEST_METHOD'] ?? '' ) !== 'POST' || ! self::allowed( $id, 'tkd_delivery' ) || ! $confirmed ) { return self::error( 'Потрібне явне підтвердження менеджера.' ); }
+		$nonce = $_POST['tkd_release_nonce'] ?? null;
+		if ( ! is_string( $nonce ) || ! wp_verify_nonce( wp_unslash( $nonce ), 'tkd_sales_release_' . $id ) ) { return self::error( 'Захист форми застарів. Оновіть сторінку.' ); }
+		$s = self::snapshot( $id ); if ( is_wp_error( $s ) ) { return $s; }
+		if ( ! is_string( $revision ) || ! hash_equals( $s['revision'], $revision ) ) { return self::error( 'Дані змінилися після відкриття сторінки. Перевірте оновлені факти.' ); }
+		if ( $s['blockers'] ) { return self::error( implode( ' ', $s['blockers'] ) ); }
+		$dispatch_nonce = $_POST['_wpnonce'] ?? null;
+		if ( ! is_string( $dispatch_nonce ) || ! wp_verify_nonce( wp_unslash( $dispatch_nonce ), ( $s['mode'] === 'np' ? 'tkd_np_dispatch_' : 'tkd_fo_dispatch_' ) . $id ) ) { return self::error( 'Захист контролю передачі застарів. Оновіть сторінку.' ); }
+		$np_before_stock = static function( $snapshot ) use ( $id ) {
+			if ( $snapshot['mode'] !== 'np' || $snapshot['status'] !== 'draft' ) { return true; }
+			if ( ! is_callable( array( 'TKD_NP_Dispatch', 'preflight_before_post' ) ) ) { return self::error( 'Оновіть модуль контролю НП: потрібна перевірка нової ЕН до списання.' ); }
+			$control = TKD_NP_Dispatch::status( $id, true );
+			if ( ! is_array( $control ) || ! is_string( $control['revision'] ?? null ) ) { return self::error( 'Немає актуальної перевірки ЕН для проведення.' ); }
+			return TKD_NP_Dispatch::preflight_before_post( $id, $control['revision'] );
+		};
+		$carrier = $np_before_stock( $s ); if ( $carrier !== true ) { return is_wp_error( $carrier ) ? $carrier : self::error( 'Нова ЕН не підтверджена. Склад і чек не змінено.' ); }
+		if ( $s['fiscal']['state'] === 'ready' ) {
+			$receipt_class = get_post_meta( $s['invoice'], '_tkd_fo_seller_key', true ) === 'fop_rv' ? 'TKD_RV_Cashalot' : (get_post_meta($s['invoice'],'_tkd_fo_seller_key',true)==='fop_tp'?'TKD_TP_Cashalot':(get_post_meta($s['invoice'],'_tkd_fo_seller_key',true)==='fop_md'?'TKD_MD_Cashalot':'PML_Release_Receipt'));
+			if ( ! is_callable( array( $receipt_class, 'ensure' ) ) ) { return self::fiscal_error( 'Автоматичне створення чека недоступне. Видаткову не проведено, передачу заблоковано.' ); }
+			$before_receipt = $s;
+			$receipt_preflight = static function() use ( $id, $before_receipt ) {
+				$current = self::snapshot( $id, true, false );
+				return ! is_wp_error( $current ) && $current['operation_basis'] === $before_receipt['operation_basis'] && ! $current['blockers'] ? true : self::error( 'Склад, оплата або доставка змінилися перед фіскалізацією. Надсилання зупинено.' );
+			};
+			// Provider I/O must not hold the warehouse mutex. The existing fiscal journal owns its UID and claims.
+			try { $issued = call_user_func( array( $receipt_class, 'ensure' ), $s['order'], $receipt_preflight ); }
+			catch ( Throwable $e ) { return self::fiscal_error( 'Результат фіскалізації не підтверджений. Видаткову не проведено. Не створюйте повторний чек — перевірте журнал.' ); }
+			if ( is_wp_error( $issued ) ) { return self::fiscal_error( 'Чек не підтверджено: ' . $issued->get_error_message() . ' Видаткову не проведено; передача заблокована.' ); }
+			$after_receipt = self::snapshot( $id );
+			if ( ! is_array( $issued ) || ( $issued['state'] ?? '' ) !== 'ok' || is_wp_error( $after_receipt ) || $after_receipt['operation_basis'] !== $before_receipt['operation_basis'] || $after_receipt['blockers'] || $after_receipt['fiscal']['state'] !== 'ok' ) {
+				return self::fiscal_error( 'Фіскальна операція могла завершитися, але перевірка продажу не пройшла. Видаткову не проведено. Звірте наявний чек, не створюйте новий.' );
+			}
+			$s = $after_receipt; $revision = $s['revision'];
+			// Fiscal I/O can take time; recheck custody before the first stock debit.
+			$carrier = $np_before_stock( $s ); if ( $carrier !== true ) { return is_wp_error( $carrier ) ? $carrier : self::error( 'НП не підтвердила нову ЕН після перевірки чека. Склад не списано; перевірте наявний чек.' ); }
+		}
+		$lease = TKD_Warehouse_Scanner::begin_office_save( $id, $s['office_revision'] ); if ( is_wp_error( $lease ) ) { return $lease; }
+		try {
+			$fresh = self::snapshot( $id );
+			if ( is_wp_error( $fresh ) || $fresh['revision'] !== $revision || $fresh['blockers'] ) { return self::error( 'Документи, оплата або доставка змінилися перед проведенням. Списання не починали.' ); }
+			$posted = TKD_FO_Deliveries::post_saved_for_handover( $id, $s['office_revision'] );
+			if ( is_wp_error( $posted ) ) { return $posted; }
+			if ( $posted !== true ) { return self::error( 'Немає підтвердження результату проведення. Перевірте журнал складу; не повторюйте списання навмання.' ); }
+		} finally { TKD_Warehouse_Scanner::end_office_save( $id, $lease ); }
+		$result = array( 'posted' => true, 'prepared' => false, 'message' => 'Видаткову проведено. Контроль передачі ще не підготовлено.' );
+		try {
+			$after = self::snapshot( $id );
+			if ( is_wp_error( $after ) || $after['basis'] !== $s['basis'] || $after['blockers'] ) { $result['message'] .= ' Дані змінилися або потребують звірки. Повторно списувати товар не потрібно.'; return $result; }
+			$control = $s['mode'] === 'np' ? TKD_NP_Dispatch::status( $id, true ) : TKD_FO_Dispatch::status( $id );
+			if ( ! is_array( $control ) || ! empty( $control['blockers'] ) || ! is_string( $control['revision'] ?? null ) || ( $control['state'] ?? '' ) !== 'preparing' ) { $result['message'] .= ' Перейдіть до контролю передачі та звірте причину.'; return $result; }
+			$preflight = static function() use ( $id, $s ) {
+				// The dispatcher validates its own pending probe/claim under this same lease.
+				$current = self::snapshot( $id, false );
+				return ! is_wp_error( $current ) && $current['status'] === 'issued' && $current['basis'] === $s['basis'] && ! $current['blockers'] ? true : self::error( 'Оплата, документи або доставка змінилися перед підготовкою. Видаткову повторно не проводьте.' );
+			};
+			$prepared = $s['mode'] === 'np' ? TKD_NP_Dispatch::prepare( $id, $control['revision'], true, $preflight ) : TKD_FO_Dispatch::execute( $id, 'prepare', $control['revision'], array( 'confirmed' => true ), $preflight );
+			if ( is_wp_error( $prepared ) ) { $result['message'] .= ' ' . $prepared->get_error_message(); return $result; }
+			if ( $prepared !== true ) { $result['message'] .= ' Результат підготовки не підтверджено. Перевірте контроль передачі.'; return $result; }
+			$result['prepared'] = true; $result['message'] = $s['mode'] === 'np' ? 'Готове до відправлення НП. Видаткову проведено, товар списано один раз; фізичне відвантаження буде підтверджене автоматично після приймання Новою поштою.' : 'Самовивіз відвантажено: видаткову проведено, комплектацію підтверджено. SMS-код не потрібний; товар списано один раз.';
+		} catch ( Throwable $error ) { $result['message'] .= ' Перевірка передачі перервалася. Не створюйте повторну видаткову, ЕН або чек.'; }
+		return $result;
+	}
+	private static function error( $message ) { return new WP_Error( 'sales_release_blocked', $message ); }
+	private static function fiscal_error( $message ) { return new WP_Error( 'sales_release_fiscal', $message ); }
+	private static function id( $v ) { return ( is_int( $v ) || is_string( $v ) ) && preg_match( '/^[1-9][0-9]*$/D', (string) $v ) && (string) (int) $v === (string) $v ? (int) $v : 0; }
+	private static function money( $v ) { return number_format( $v / 100, 2, ',', ' ' ) . ' грн'; }
+ public static function run_test($id,$revision,$confirm){return self::execute_unscoped($id,$revision,$confirm);}
+}

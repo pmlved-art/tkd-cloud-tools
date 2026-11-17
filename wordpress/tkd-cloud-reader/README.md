@@ -79,3 +79,14 @@ ZIP містить лише production PHP і цей README. Тести, клі�
 сценаріях прав, підготовки, передачі та reconciliation; helpers замокані.
 Це не live перевірка операцій: після review/установлення потрібні GET
 capabilities та snapshots. Drift приватного методу блокує виконання.
+
+Також 0.4.2 включає deployment-кандидати `Sales_Release::read_snapshot`,
+`execute_unscoped`, їхні чотири self-helpers та
+`Warehouse_Scanner::quantity_only_items`; чинний `serials` pin збережений.
+Quantity-only стосується лише WM100UG1, цілої додатної кількості без SN;
+інвертори/АКБ не звільняються від scanner-перевірок. Існуючі native правила
+продавців/фіскалізації збережені, окремий cloud фінансовий маршрут не додається.
+Тести exact execute з mock provider підтверджують fiscal preflight та stop
+до stock при fiscal error; це не перевірка реальної фіскалізації.
+Повні scanner task/dispatch/intent залишаються в revision. Нові кандидати
+потребують runtime pin-збігу після установки; при drift виконання блокується.

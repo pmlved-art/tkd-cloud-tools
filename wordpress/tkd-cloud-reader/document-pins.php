@@ -2,6 +2,11 @@
 if (!defined('ABSPATH')) { exit; }
 // Fixed reviewed candidate pins. No source invocation or arbitrary class input.
 return array(
+    'TKD_Warehouse_Scanner::quantity_only_items' => array('public', 'f22825425aaec9c4f0c0230fed1fd5ae3b652c92429ccaf6b69a618a4ef319e3'),
+    'TKD_Sales_Release::money' => array('private', 'ecfe6df621565c13ad259bed7cf13e968d82df08a58a82e98ba521537d10bfe0'),
+    'TKD_Sales_Release::id' => array('private', '0b3b2b6f338dbe7b3400484c4a69342e3072b785c7185a60a1ff7331440b68fe'),
+    'TKD_Sales_Release::fiscal_error' => array('private', '9213bc359da0bfaab8a02bacf74a6efea5a4dd55da3ec02ad38fee27d19a7ccc'),
+    'TKD_Sales_Release::error' => array('private', 'a008ef0bf9c249ef0b76a6546c099516eb0f86f85f416f23441b77b0fa6dafa7'),
     'TKD_NP_Dispatch::status_read' => array('private', 'f553e0115126c626afc855c350247ed7f556f74deb2e520c6ac2820279781125'),
     'TKD_Returning_Customer_20261114::accept' => array('public', 'fc778a16b5bacb0e7f4c5c7cdbb670b4a9ac8c679082fecf1d0ab25e2d977601'),
     'TKD_Returning_Customer_20261114::clear_option_cache' => array('public', '01ee52e7244d6f915c6383376fee1f57058b29e35034fea79067e598a45cd8e7'),
@@ -227,7 +232,7 @@ return array(
     'TKD_Sales_Release::execute' => array('public', 'daf8b5983481c1fbdc924385b6cbd934b4a8d5a7fb07f618387743c89261af55'),
     'TKD_Sales_Release::execute_inline' => array('public', '7cba5aa1cb5f0534075474ba4fd71c110ca01a5582000de64bb8a962dbb06fa5'),
     'TKD_Sales_Release::execute_inline_unscoped' => array('private', '9149d5d95158c63c978a17d8b381d506ab1800a9cc7addcc016b5335c8d44fa8'),
-    'TKD_Sales_Release::execute_unscoped' => array('private', '2729b4890e9d35fd2e339aef275df918b7f78155375454f7b212bfea2d9e96bb'),
+    'TKD_Sales_Release::execute_unscoped' => array('private', '55f1896f7ae280e7a72f7a228dad35b78b4f8016064b6467d4f75d8c8494a843'),
     'TKD_Sales_Release::fiscal' => array('private', '3dfaf63965814b41da74bcb2f559eda7e2dd6bee75a01e1f07c933ac5a4e5c38'),
     'TKD_Sales_Release::invoice_consistent' => array('private', '5450b0a13fb86694b5ff1858590baf52e9329b7873a559241bd71ee12c1c0a69'),
     'TKD_Sales_Release::manager_snapshot' => array('public', '1036454487d0cc70c91a6410b62d44f968ed02ed7291c422df3b4701ad525d88'),
@@ -235,7 +240,7 @@ return array(
     'TKD_Sales_Release::minor' => array('private', '53685129d958d8131480cdb64ec5a024ae5fe1540ab57338751419c7e2a7cbaa'),
     'TKD_Sales_Release::physical_stock_blockers' => array('private', '20c1687f009befdb463c7704f34132f42c4f2e53f1ed67ba5b83acf6d8b98c02'),
     'TKD_Sales_Release::query' => array('private', '3a6e659a57f98f538a923bb8f4835909db068e7d36d20936457e1369078dfd48'),
-    'TKD_Sales_Release::read_snapshot' => array('private', 'bfa27798f4154bb77ea3e24bb6da720fde762e702de210579cf08ce88c58b9d6'),
+    'TKD_Sales_Release::read_snapshot' => array('private', 'f12dbdbb59607c9c6df45bf06f65e12275f06bab91f90aa384fb3b6bae4e37f2'),
     'TKD_Sales_Release::signature' => array('private', 'abf6b72efe243ca37230d0844f26dbc9ad7115cd8149deb65c3601c7b2b360d7'),
     'TKD_Sales_Release::snapshot' => array('public', '83a179cc43ea0e4b150110c684907b747adc0e17b1dc9a145234fc11646f6f7d'),
     'TKD_Sales_Release::snapshot_unscoped' => array('private', 'c168e07959e0b3e02ec518b529f05728b5a5fcc78b9fe5c0186f1debd431f6ab'),
